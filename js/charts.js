@@ -1,0 +1,325 @@
+// Graphiques SVG : diagramme solaire, profil journalier, bilan mensuel, comparatif.
+
+import { sunPosition, parisLocalToUTC } from './solar.js';
+
+const NS = 'http://www.w3.org/2000/svg';
+const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+
+function el(tag, attrs = {}, parent) {
+  const n = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+  if (parent) parent.appendChild(n);
+  return n;
+}
+
+function svgRoot(container, w, h, label) {
+  container.innerHTML = '';
+  const svg = el('svg', { viewBox: `0 0 ${w} ${h}`, role: 'img', 'aria-label': label, class: 'chart-svg' });
+  container.appendChild(svg);
+  return svg;
+}
+
+const fmt = (v, d = 0) => v.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
+export const fmtHour = (h) => {
+  const hh = Math.floor(h + 1e-6);
+  const mm = Math.round((h - hh) * 60);
+  return `${String(hh % 24).padStart(2, '0')}h${String(mm === 60 ? 0 : mm).padStart(2, '0')}`;
+};
+
+function niceMax(v) {
+  if (v <= 0) return 1;
+  const p = 10 ** Math.floor(Math.log10(v));
+  for (const m of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (m * p >= v) return m * p;
+  return 10 * p;
+}
+
+// Infobulle partagée
+let tip;
+function tooltip() {
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.className = 'chart-tip';
+    tip.setAttribute('role', 'status');
+    document.body.appendChild(tip);
+  }
+  return tip;
+}
+function showTip(html, evt) {
+  const t = tooltip();
+  t.innerHTML = html;
+  t.style.display = 'block';
+  const pad = 14;
+  const r = t.getBoundingClientRect();
+  let x = evt.clientX + pad;
+  let y = evt.clientY + pad;
+  if (x + r.width > window.innerWidth - 8) x = evt.clientX - r.width - pad;
+  if (y + r.height > window.innerHeight - 8) y = evt.clientY - r.height - pad;
+  t.style.left = `${x}px`;
+  t.style.top = `${y}px`;
+}
+function hideTip() {
+  if (tip) tip.style.display = 'none';
+}
+
+// ---------------------------------------------------------------------------
+// Diagramme solaire (projection polaire équidistante, nord en haut)
+// ---------------------------------------------------------------------------
+
+export function renderSunPath(container, { year, doy, hour, sun, facadeAz }) {
+  const S = 340;
+  const c = S / 2;
+  const R = 140;
+  const svg = svgRoot(container, S, S, 'Diagramme de la course du soleil à Paris');
+  const proj = (alt, az) => {
+    const r = (R * (90 - Math.max(alt, 0))) / 90;
+    const a = (az * Math.PI) / 180;
+    return [c + r * Math.sin(a), c - r * Math.cos(a)];
+  };
+
+  // Demi-ciel situé derrière la façade
+  const back = [];
+  for (let k = 0; k <= 36; k++) {
+    const az = facadeAz + 90 + (k / 36) * 180;
+    back.push(proj(0, az));
+  }
+  el('path', {
+    d: `M${c},${c} L${back.map((p) => p.join(',')).join(' L')} Z`,
+    class: 'sp-back',
+  }, svg);
+
+  el('circle', { cx: c, cy: c, r: R, class: 'sp-ring sp-horizon' }, svg);
+  for (const alt of [30, 60]) {
+    el('circle', { cx: c, cy: c, r: (R * (90 - alt)) / 90, class: 'sp-ring' }, svg);
+    el('text', { x: c + 3, y: c - (R * (90 - alt)) / 90 - 3, class: 'sp-label' }, svg).textContent = `${alt}°`;
+  }
+  for (let az = 0; az < 360; az += 30) {
+    const [x, y] = proj(0, az);
+    el('line', { x1: c, y1: c, x2: x, y2: y, class: 'sp-ray' }, svg);
+  }
+  for (const [t, az] of [['N', 0], ['E', 90], ['S', 180], ['O', 270]]) {
+    const a = (az * Math.PI) / 180;
+    el('text', {
+      x: c + (R + 14) * Math.sin(a), y: c - (R + 14) * Math.cos(a) + 4,
+      class: 'sp-cardinal', 'text-anchor': 'middle',
+    }, svg).textContent = t;
+  }
+
+  // Trace de la façade et sa normale
+  const fa = (facadeAz * Math.PI) / 180;
+  const ux = Math.cos(fa);
+  const uy = Math.sin(fa);
+  el('line', { x1: c - ux * R, y1: c - uy * R, x2: c + ux * R, y2: c + uy * R, class: 'sp-facade' }, svg);
+  const [nx, ny] = [c + Math.sin(fa) * 34, c - Math.cos(fa) * 34];
+  el('line', { x1: c, y1: c, x2: nx, y2: ny, class: 'sp-normal', 'marker-end': 'url(#arrow)' }, svg);
+  const defs = el('defs', {}, svg);
+  const mk = el('marker', { id: 'arrow', viewBox: '0 0 10 10', refX: 6, refY: 5, markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse' }, defs);
+  el('path', { d: 'M0,0 L10,5 L0,10 z', class: 'sp-arrowhead' }, mk);
+
+  const dayPath = (d) => {
+    const pts = [];
+    for (let m = 0; m <= 1440; m += 10) {
+      const p = sunPosition(parisLocalToUTC(year, d, m / 60));
+      if (p.altitude > 0) pts.push(proj(p.altitude, p.azimuth));
+    }
+    return pts;
+  };
+  const line = (pts, cls) => {
+    if (pts.length > 1) el('path', { d: `M${pts.map((p) => p.map((v) => v.toFixed(1)).join(',')).join(' L')}`, class: cls }, svg);
+  };
+  line(dayPath(172), 'sp-ref');
+  line(dayPath(80), 'sp-ref');
+  line(dayPath(355), 'sp-ref');
+
+  const ref = [[172, '21 juin'], [355, '21 déc.']];
+  for (const [d, label] of ref) {
+    const p = sunPosition(parisLocalToUTC(year, d, d === 172 ? 14 : 13));
+    const [x, y] = proj(p.altitude, p.azimuth);
+    el('text', { x: x + 5, y: y + (d === 172 ? -6 : 14), class: 'sp-label' }, svg).textContent = label;
+  }
+
+  line(dayPath(doy), 'sp-today');
+
+  // Repères horaires sur la course du jour
+  for (let h = 4; h <= 22; h++) {
+    const p = sunPosition(parisLocalToUTC(year, doy, h));
+    if (p.altitude <= 0) continue;
+    const [x, y] = proj(p.altitude, p.azimuth);
+    el('circle', { cx: x, cy: y, r: 2.2, class: 'sp-hour' }, svg);
+    if (h % 2 === 0) el('text', { x, y: y - 6, 'text-anchor': 'middle', class: 'sp-hlabel' }, svg).textContent = `${h}h`;
+  }
+
+  if (sun.altitude > 0) {
+    const [x, y] = proj(sun.altitude, sun.azimuth);
+    const dot = el('circle', { cx: x, cy: y, r: 8, class: 'sp-sun' }, svg);
+    const hit = el('circle', { cx: x, cy: y, r: 16, fill: 'transparent' }, svg);
+    const html = `<strong>${fmtHour(hour)}</strong><br>Hauteur ${fmt(sun.altitude, 1)}°<br>Azimut ${fmt(sun.azimuth, 1)}°`;
+    hit.addEventListener('mousemove', (e) => showTip(html, e));
+    hit.addEventListener('mouseleave', hideTip);
+    void dot;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Profil journalier
+// ---------------------------------------------------------------------------
+
+export function renderDayChart(container, { without, withP, hour, area, onPick }) {
+  const W = 640;
+  const H = 260;
+  const m = { l: 48, r: 16, t: 16, b: 30 };
+  const iw = W - m.l - m.r;
+  const ih = H - m.t - m.b;
+  const svg = svgRoot(container, W, H, 'Puissance solaire entrant par la fenêtre au fil de la journée');
+
+  const vals = without.map((p) => p.gain * area);
+  const ymax = niceMax(Math.max(100, ...vals) * 1.05);
+  const x = (h) => m.l + (h / 24) * iw;
+  const y = (v) => m.t + ih - (v / ymax) * ih;
+
+  for (let k = 0; k <= 4; k++) {
+    const v = (ymax * k) / 4;
+    el('line', { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), class: k === 0 ? 'axis' : 'grid' }, svg);
+    el('text', { x: m.l - 6, y: y(v) + 4, 'text-anchor': 'end', class: 'tick' }, svg).textContent = fmt(v);
+  }
+  el('text', { x: m.l, y: m.t - 4, class: 'tick' }, svg).textContent = 'W';
+  for (let h = 0; h <= 24; h += 3) {
+    el('text', { x: x(h), y: H - 10, 'text-anchor': 'middle', class: 'tick' }, svg).textContent = `${h}h`;
+  }
+
+  const path = (arr, key) => arr.map((p, i) => `${i ? 'L' : 'M'}${x(p.h).toFixed(1)},${y(p[key] * area).toFixed(1)}`).join(' ');
+  const areaPath = `${path(withP, 'gain')} L${x(24)},${y(0)} L${x(0)},${y(0)} Z`;
+  el('path', { d: areaPath, class: 'area-1' }, svg);
+  el('path', { d: path(without, 'gain'), class: 'line-2' }, svg);
+  el('path', { d: path(withP, 'gain'), class: 'line-1' }, svg);
+
+  // Étiquettes directes au pic de chaque courbe
+  const peak = (arr) => arr.reduce((a, b) => (b.gain > a.gain ? b : a), arr[0]);
+  const pw = peak(without);
+  const pp = peak(withP);
+  if (pw.gain * area > ymax * 0.08) {
+    el('text', { x: x(pw.h), y: y(pw.gain * area) - 8, 'text-anchor': 'middle', class: 'direct-label' }, svg).textContent = 'sans protection';
+  }
+  if (pp.gain * area > ymax * 0.08 && Math.abs(y(pp.gain * area) - y(pw.gain * area)) > 18) {
+    el('text', { x: x(pp.h), y: y(pp.gain * area) - 8, 'text-anchor': 'middle', class: 'direct-label' }, svg).textContent = 'avec protection';
+  }
+
+  // Heure courante
+  el('line', { x1: x(hour), x2: x(hour), y1: m.t, y2: m.t + ih, class: 'now' }, svg);
+
+  // Couche de survol
+  const cross = el('line', { y1: m.t, y2: m.t + ih, class: 'cross', visibility: 'hidden' }, svg);
+  const d1 = el('circle', { r: 4.5, class: 'dot-1', visibility: 'hidden' }, svg);
+  const d2 = el('circle', { r: 4.5, class: 'dot-2', visibility: 'hidden' }, svg);
+  const hit = el('rect', { x: m.l, y: m.t, width: iw, height: ih, fill: 'transparent', style: 'cursor:crosshair' }, svg);
+  const pick = (evt) => {
+    const r = svg.getBoundingClientRect();
+    const px = ((evt.clientX - r.left) / r.width) * W;
+    const h = Math.max(0, Math.min(24, ((px - m.l) / iw) * 24));
+    const i = Math.round((h / 24) * (withP.length - 1));
+    return { i, h: withP[i].h };
+  };
+  hit.addEventListener('mousemove', (evt) => {
+    const { i, h } = pick(evt);
+    const a = without[i].gain * area;
+    const b = withP[i].gain * area;
+    for (const n of [cross, d1, d2]) n.setAttribute('visibility', 'visible');
+    cross.setAttribute('x1', x(h));
+    cross.setAttribute('x2', x(h));
+    d1.setAttribute('cx', x(h)); d1.setAttribute('cy', y(b));
+    d2.setAttribute('cx', x(h)); d2.setAttribute('cy', y(a));
+    showTip(
+      `<strong>${fmtHour(h)}</strong>
+       <div class="tip-row"><span class="sw sw-2"></span>Sans protection<b>${fmt(a)} W</b></div>
+       <div class="tip-row"><span class="sw sw-1"></span>Avec protection<b>${fmt(b)} W</b></div>
+       <div class="tip-note">Cliquer pour se placer à cette heure</div>`,
+      evt
+    );
+  });
+  hit.addEventListener('mouseleave', () => {
+    for (const n of [cross, d1, d2]) n.setAttribute('visibility', 'hidden');
+    hideTip();
+  });
+  hit.addEventListener('click', (evt) => onPick && onPick(pick(evt).h));
+}
+
+// ---------------------------------------------------------------------------
+// Bilan mensuel (barres groupées)
+// ---------------------------------------------------------------------------
+
+export function renderMonthChart(container, { data, currentMonth }) {
+  const W = 640;
+  const H = 240;
+  const m = { l: 44, r: 12, t: 18, b: 28 };
+  const iw = W - m.l - m.r;
+  const ih = H - m.t - m.b;
+  const svg = svgRoot(container, W, H, 'Énergie solaire entrant par jour de ciel clair, mois par mois');
+  const ymax = niceMax(Math.max(0.5, ...data.map((d) => d.without)) * 1.05);
+  const y = (v) => m.t + ih - (v / ymax) * ih;
+  for (let k = 0; k <= 4; k++) {
+    const v = (ymax * k) / 4;
+    el('line', { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), class: k === 0 ? 'axis' : 'grid' }, svg);
+    el('text', { x: m.l - 6, y: y(v) + 4, 'text-anchor': 'end', class: 'tick' }, svg).textContent = fmt(v, v < 10 && ymax < 10 ? 1 : 0);
+  }
+  el('text', { x: m.l, y: m.t - 6, class: 'tick' }, svg).textContent = 'kWh / jour';
+  const band = iw / 12;
+  const bw = Math.min(18, (band - 10) / 2);
+  data.forEach((d, i) => {
+    const cx = m.l + band * (i + 0.5);
+    if (i === currentMonth) {
+      el('rect', { x: cx - band / 2 + 1, y: m.t, width: band - 2, height: ih, class: 'month-hl' }, svg);
+    }
+    const bar = (v, xx, cls) => {
+      const h = Math.max(0, y(0) - y(v));
+      const r = Math.min(4, h, bw / 2);
+      // Barre arrondie en haut, ancrée sur l'axe
+      const x0 = xx;
+      const x1 = xx + bw;
+      const y0 = y(0);
+      const y1 = y(v);
+      el('path', {
+        d: `M${x0},${y0} L${x0},${y1 + r} Q${x0},${y1} ${x0 + r},${y1} L${x1 - r},${y1} Q${x1},${y1} ${x1},${y1 + r} L${x1},${y0} Z`,
+        class: cls,
+      }, svg);
+    };
+    bar(d.without, cx - bw - 1, 'bar-2');
+    bar(d.withP, cx + 1, 'bar-1');
+    el('text', { x: cx, y: H - 9, 'text-anchor': 'middle', class: i === currentMonth ? 'tick tick-strong' : 'tick' }, svg).textContent = MONTHS[i];
+    const hit = el('rect', { x: cx - band / 2, y: m.t, width: band, height: ih, fill: 'transparent' }, svg);
+    hit.addEventListener('mousemove', (evt) => showTip(
+      `<strong>21 ${MONTHS[i].replace('.', '')}</strong>
+       <div class="tip-row"><span class="sw sw-2"></span>Sans protection<b>${fmt(d.without, 1)} kWh</b></div>
+       <div class="tip-row"><span class="sw sw-1"></span>Avec protection<b>${fmt(d.withP, 1)} kWh</b></div>
+       <div class="tip-note">Soleil au midi : ${fmt(d.noonAlt, 0)}° de hauteur</div>`,
+      evt
+    ));
+    hit.addEventListener('mouseleave', hideTip);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Comparatif des protections (barres horizontales : part du rayonnement arrêtée)
+// ---------------------------------------------------------------------------
+
+export function renderComparison(container, rows) {
+  container.innerHTML = '';
+  const list = document.createElement('div');
+  list.className = 'cmp';
+  for (const r of rows) {
+    const row = document.createElement('div');
+    row.className = `cmp-row${r.current ? ' is-current' : ''}`;
+    const blocked = Math.max(0, Math.min(1, r.reduction));
+    const light = Math.max(0, Math.min(1, r.light));
+    row.innerHTML = `
+      <div class="cmp-name"><span>${r.label}</span><small>${r.setting}</small></div>
+      <div class="cmp-bar" title="Part du rayonnement solaire arrêtée">
+        <div class="cmp-fill" style="width:${(blocked * 100).toFixed(1)}%"></div>
+        <span class="cmp-val${blocked < 0.18 ? ' out' : ''}"${blocked < 0.18 ? ` style="left:calc(${(blocked * 100).toFixed(1)}% + 6px)"` : ''}>${fmt(blocked * 100)} %</span>
+      </div>
+      <div class="cmp-light" title="Lumière naturelle conservée">${fmt(light * 100)} %</div>
+      <div class="cmp-kwh">${fmt(r.kwh, 1)}</div>`;
+    list.appendChild(row);
+  }
+  container.appendChild(list);
+}
+
+export { MONTHS, fmt };
