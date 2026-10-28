@@ -207,7 +207,7 @@ function recomputeDay() {
   const light0 = integrate(without, 'light');
   renderKpis($('kpisDay'), {
     heatLabel: 'Chaleur solaire entrée',
-    heat: fmt(kWith, 1), heat0: fmt(kWithout, 1), unit: 'kWh',
+    heat: fmt(kWith * 1000), heat0: fmt(kWithout * 1000), unit: 'Wh',
     reduction: kWithout > 0.01 ? 1 - kWith / kWithout : null,
     gtot: incDay > 0.01 ? kWith / incDay : null,
     light: light0 > 0.001 ? integrate(withP, 'light') / light0 : null,
