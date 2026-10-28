@@ -14,7 +14,7 @@ const SLAB = 0.25;
 const WALL_BOTTOM = -0.95;
 const WALL_TOP = 3.75;
 const INNER = -0.2; // nu intérieur du mur de façade
-const DOME = 4.4; // rayon de l'héliodon dessiné autour de la fenêtre
+const DOME = 6.2; // rayon de l'héliodon dessiné autour de la fenêtre
 
 const AMBIENT = 1.3; // gris de l'ombre, assez marqué pour lire les ombres portées
 const INK = 0x111110;
@@ -66,7 +66,8 @@ export class SolarScene {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.minZoom = 0.5;
-    this.controls.maxZoom = 4;
+    this.controls.maxZoom = 8;
+    this.controls.zoomSpeed = 3.5;
     this.controls.maxPolarAngle = Math.PI * 0.49;
     // La molette fait défiler la page ; Ctrl (ou Cmd) + molette zoome dans la vue.
     container.addEventListener('wheel', (e) => {
@@ -129,11 +130,11 @@ export class SolarScene {
     const c = this.center;
     const views = {
       // axonométrie depuis la rue, légèrement de biais
-      ext: { dir: [0.95, 0.72, 1.0], target: [c.x, c.y + 1.3, 1.2], half: 4.1 },
+      ext: { dir: [0.95, 0.72, 1.0], target: [c.x, c.y + 1.9, 1.6], half: 5.4 },
       // pièce vue d'en haut, plafond et deux murs ôtés
       int: { dir: [0.9, 1.25, -1.05], target: [0, 0.9, -1.9], half: 3.3 },
       // coupe par l'axe de la fenêtre
-      coupe: { dir: [1, 0.42, 0.32], target: [0, 2.0, 0.2], half: 4.0 },
+      coupe: { dir: [1, 0.42, 0.32], target: [0, 2.6, 0.8], half: 5.4 },
     };
     const v = views[view];
     const d = new THREE.Vector3(...v.dir).normalize().multiplyScalar(30);

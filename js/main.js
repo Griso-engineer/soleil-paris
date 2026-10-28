@@ -203,13 +203,21 @@ function recomputeDay() {
 
   const kWith = integrate(withP, 'gain') * area;
   const kWithout = integrate(without, 'gain') * area;
-  const red = kWithout > 0.01 ? 1 - kWith / kWithout : 0;
+  const incDay = integrate(withP, 'incident') * area;
+  const light0 = integrate(without, 'light');
+  renderKpis($('kpisDay'), {
+    heatLabel: 'Chaleur solaire entrée',
+    heat: fmt(kWith, 1), heat0: fmt(kWithout, 1), unit: 'kWh',
+    reduction: kWithout > 0.01 ? 1 - kWith / kWithout : null,
+    gtot: incDay > 0.01 ? kWith / incDay : null,
+    light: light0 > 0.001 ? integrate(withP, 'light') / light0 : null,
+  });
+  $('kpiDayLabel').textContent = `${dateLabel(state.doy)}, ciel clair`;
   const lit = sunlitHours(without);
   $('dayTotals').innerHTML = `
-    <span>Sans protection <b>${fmt(kWithout, 1)} kWh</b></span>
-    <span>Avec protection <b>${fmt(kWith, 1)} kWh</b></span>
-    <span>Rayonnement arrêté sur la journée <b>${fmt(red * 100)} %</b></span>
-    <span>Soleil direct sur la vitre <b>${lit}</b></span>`;
+    <span>Soleil direct sur la vitre <b>${lit}</b></span>
+    <span>Lever <b>${times.rise === null ? '—' : fmtHour(times.rise)}</b></span>
+    <span>Coucher <b>${times.set === null ? '—' : fmtHour(times.set)}</b></span>`;
   $('daySub').textContent = `${dateLabel(state.doy)}, ciel clair. Fenêtre de ${fmt(area, 2)} m². Sans protection, c'est l'équivalent d'un radiateur de 1 000 W allumé ${durationLabel(kWithout)}.`;
 }
 
@@ -326,6 +334,32 @@ function settingLabel() {
 // Valeurs instantanées
 // ---------------------------------------------------------------------------
 
+// Quatre indicateurs au même format, pour l'instant choisi comme pour la journée.
+function renderKpis(el, d) {
+  const gl = GLAZINGS[state.glazing];
+  el.innerHTML = `
+    <div class="kpi hero">
+      <div class="k-label">${d.heatLabel}</div>
+      <div class="k-value">${d.heat}<small>${d.unit}</small></div>
+      <div class="k-note">sans protection : <b>${d.heat0} ${d.unit}</b></div>
+    </div>
+    <div class="kpi">
+      <div class="k-label">Rayonnement arrêté</div>
+      <div class="k-value">${d.reduction === null ? '—' : `${fmt(d.reduction * 100)}<small>%</small>`}</div>
+      <div class="meter"><i style="width:${d.reduction === null ? 0 : Math.max(0, d.reduction * 100)}%"></i></div>
+    </div>
+    <div class="kpi">
+      <div class="k-label">Facteur solaire global g<sub>tot</sub></div>
+      <div class="k-value">${d.gtot === null ? '—' : fmt(d.gtot, 2)}</div>
+      <div class="k-note">vitrage seul : <b>g = ${fmt(gl.g, 2)}</b></div>
+    </div>
+    <div class="kpi">
+      <div class="k-label">Lumière naturelle conservée</div>
+      <div class="k-value">${d.light === null ? '—' : `${fmt(d.light * 100)}<small>%</small>`}</div>
+      <div class="k-note">vue : <b>${PROTECTIONS[state.type].view.toLowerCase()}</b></div>
+    </div>`;
+}
+
 let lastSunPath = 0;
 function updateInstant(force = false) {
   const sun = sunPosition(parisLocalToUTC(YEAR, state.doy, state.hour));
@@ -334,32 +368,14 @@ function updateInstant(force = false) {
   const area = state.W * state.H;
   const P = r.gain * area;
   const P0 = r0.gain * area;
-  const reduction = P0 > 2 ? 1 - P / P0 : null;
-  const gtot = r.incident > 5 ? r.gain / r.incident : null;
-  const light = r0.light > 0.5 ? r.light / r0.light : null;
-  const gl = GLAZINGS[state.glazing];
-
-  $('kpis').innerHTML = `
-    <div class="kpi hero">
-      <div class="k-label">Chaleur solaire entrant maintenant</div>
-      <div class="k-value">${fmt(P)}<small>W</small></div>
-      <div class="k-note">sans protection : <b>${fmt(P0)} W</b></div>
-    </div>
-    <div class="kpi">
-      <div class="k-label">Rayonnement arrêté</div>
-      <div class="k-value">${reduction === null ? '—' : `${fmt(reduction * 100)}<small>%</small>`}</div>
-      <div class="meter"><i style="width:${reduction === null ? 0 : Math.max(0, reduction * 100)}%"></i></div>
-    </div>
-    <div class="kpi">
-      <div class="k-label">Facteur solaire global g<sub>tot</sub></div>
-      <div class="k-value">${gtot === null ? '—' : fmt(gtot, 2)}</div>
-      <div class="k-note">vitrage seul : <b>g = ${fmt(gl.g, 2)}</b></div>
-    </div>
-    <div class="kpi">
-      <div class="k-label">Lumière naturelle conservée</div>
-      <div class="k-value">${light === null ? '—' : `${fmt(light * 100)}<small>%</small>`}</div>
-      <div class="k-note">vue : <b>${PROTECTIONS[state.type].view.toLowerCase()}</b></div>
-    </div>`;
+  renderKpis($('kpis'), {
+    heatLabel: 'Chaleur solaire entrant',
+    heat: fmt(P), heat0: fmt(P0), unit: 'W',
+    reduction: P0 > 2 ? 1 - P / P0 : null,
+    gtot: r.incident > 5 ? r.gain / r.incident : null,
+    light: r0.light > 0.5 ? r.light / r0.light : null,
+  });
+  $('kpiNowLabel').textContent = `${dateLabel(state.doy)}, ${fmtHour(state.hour)}`;
 
   // Badge soleil
   const incidence = Math.acos(Math.min(1, r.cosT)) * 180 / Math.PI;

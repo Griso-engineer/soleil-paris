@@ -88,7 +88,7 @@ export function defaultConfig() {
     W: 1.2,
     H: 2.15,
     e: 0.3,
-    glazing: 'doubleFE',
+    glazing: 'simple',
     type: 'bso',
     deploy: 1, // fraction déployée (0 → 1)
     slatAngle: 40, // BSO, ° (0 = horizontales, 90 = fermées)

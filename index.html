@@ -198,7 +198,14 @@
 
       <!-- Résultats -->
       <section class="results" aria-label="Résultats">
-        <div class="kpis" id="kpis"></div>
+        <section class="kpi-block">
+          <h3>Performance à l'instant sélectionné <span id="kpiNowLabel"></span></h3>
+          <div class="kpis" id="kpis"></div>
+        </section>
+        <section class="kpi-block">
+          <h3>Performance sur la journée entière <span id="kpiDayLabel"></span></h3>
+          <div class="kpis" id="kpisDay"></div>
+        </section>
 
         <article class="card span-2">
           <header class="card-head">
