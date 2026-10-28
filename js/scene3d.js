@@ -43,6 +43,10 @@ export class SolarScene {
     this.controls.maxPolarAngle = Math.PI * 0.495;
     this.controls.minDistance = 1;
     this.controls.maxDistance = 40;
+    // La molette fait défiler la page ; Ctrl (ou Cmd) + molette zoome dans la vue.
+    container.addEventListener('wheel', (e) => {
+      if (!e.ctrlKey && !e.metaKey) e.stopPropagation();
+    }, { capture: true });
 
     this.hemi = new THREE.HemisphereLight(0xdde8ff, 0x8a7f6a, 0.8);
     this.scene.add(this.hemi);
@@ -102,7 +106,7 @@ export class SolarScene {
   buildGround() {
     const g = new THREE.Mesh(
       new THREE.CircleGeometry(60, 64),
-      new THREE.MeshStandardMaterial({ color: 0xb9b3a4, roughness: 1 })
+      new THREE.MeshStandardMaterial({ color: 0xd9d7d1, roughness: 1 })
     );
     g.rotation.x = -Math.PI / 2;
     g.position.y = GROUND_Y;
@@ -150,8 +154,8 @@ export class SolarScene {
     const { W, H, e } = cfg;
     const sill = sillHeight(H);
     this.sill = sill;
-    const wallMat = new THREE.MeshStandardMaterial({ color: 0xeee8dc, roughness: 0.95 });
-    const roomMat = new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.9 });
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0xf2f1ee, roughness: 0.95 });
+    const roomMat = new THREE.MeshStandardMaterial({ color: 0xf7f7f5, roughness: 0.9 });
     const floorMat = new THREE.MeshStandardMaterial({ color: 0xc9a77c, roughness: 0.8 });
     const frameMat = new THREE.MeshStandardMaterial({ color: 0xf8f8f6, roughness: 0.6 });
 
@@ -365,9 +369,9 @@ export class SolarScene {
     const warm = new THREE.Color(0xffa45c).lerp(new THREE.Color(0xfff4e2), up);
     this.sun.color.copy(warm);
     this.sunDisc.material.color.copy(new THREE.Color(0xff9b4a).lerp(new THREE.Color(0xffe08a), up));
-    const night = new THREE.Color(0x1d2738);
-    const dusk = new THREE.Color(0xe7b48f);
-    const day = new THREE.Color(0x9cc4e4);
+    const night = new THREE.Color(0x1b1d22);
+    const dusk = new THREE.Color(0xffca7d);
+    const day = new THREE.Color(0xd6e6fb);
     const sky = sun.altitude < 0
       ? night.clone().lerp(dusk, Math.max(0, 1 + sun.altitude / 8))
       : dusk.clone().lerp(day, Math.min(1, sun.altitude / 20));
@@ -413,12 +417,12 @@ export class SolarScene {
     const labels = [['N', 0], ['E', 90], ['S', 180], ['O', 270]];
     for (const [txt, az] of labels) {
       const s = sunVectorLocal(0, az, facadeAz);
-      const sp = textSprite(txt, txt === 'N' ? '#b3261e' : '#2b2a27');
+      const sp = textSprite(txt, txt === 'N' ? '#fa554f' : '#111110');
       sp.position.set(s.x * (R + 1.2), GROUND_Y + 0.6, s.z * (R + 1.2));
       this.compass.add(sp);
       const tick = new THREE.Mesh(
         new THREE.BoxGeometry(0.08, 0.02, 1.2),
-        new THREE.MeshBasicMaterial({ color: txt === 'N' ? 0xb3261e : 0x4a4740 })
+        new THREE.MeshBasicMaterial({ color: txt === 'N' ? 0xfa554f : 0x111110 })
       );
       tick.position.set(s.x * R, GROUND_Y + 0.02, s.z * R);
       tick.lookAt(0, GROUND_Y + 0.02, 0);

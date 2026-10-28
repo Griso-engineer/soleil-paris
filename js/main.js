@@ -198,7 +198,7 @@ function recomputeDay() {
     const r = (times.rise / 24) * 100;
     const s = (times.set / 24) * 100;
     $('hour').style.setProperty('--day-gradient',
-      `linear-gradient(90deg, #3a4356 0%, #3a4356 ${r - 1.5}%, #f3b860 ${r + 1}%, #f6d27a ${(r + s) / 2}%, #f3b860 ${s - 1}%, #3a4356 ${s + 1.5}%, #3a4356 100%)`);
+      `linear-gradient(90deg, #111110 0%, #111110 ${r - 1.5}%, #ff9f1c ${r + 1}%, #ffca7d ${(r + s) / 2}%, #ff9f1c ${s - 1}%, #111110 ${s + 1.5}%, #111110 100%)`);
   }
 
   const kWith = integrate(withP, 'gain') * area;

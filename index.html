@@ -3,10 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Soleil & protections — Paris</title>
-  <meta name="description" content="Simulateur pédagogique du rayonnement solaire à Paris et de l'efficacité des protections solaires extérieures mobiles : volets battants, accordéon, roulants, brise-soleil orientables, stores.">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='7' fill='%23eda100'/%3E%3Cg stroke='%23eda100' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M16 2v4M16 26v4M2 16h4M26 16h4M6 6l3 3M23 23l3 3M6 26l3-3M23 9l3-3'/%3E%3C/g%3E%3C/svg%3E">
+  <title>Soleil & protections — Paris · Tracés</title>
+  <meta name="description" content="Simulateur pédagogique Tracés : rayonnement solaire à Paris et efficacité des protections solaires extérieures mobiles (volets battants, accordéon, roulants, brise-soleil orientables, stores).">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23FA554F'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23fff'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap">
   <link rel="stylesheet" href="css/style.css">
+  <script>document.documentElement.classList.add('js');</script>
   <script type="importmap">
     {
       "imports": {
@@ -17,272 +22,391 @@
   </script>
 </head>
 <body>
+  <!-- Libellé vertical, comme dans les présentations Tracés -->
+  <div class="rail" aria-hidden="true">
+    <span>Simulateur Tracés — Soleil &amp; protections</span>
+    <b>tracés</b>
+    <span>Paris 48,86° N</span>
+  </div>
+
   <header class="top">
-    <div class="brand">
-      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="7"/><path d="M16 2v4M16 26v4M2 16h4M26 16h4M6 6l3 3M23 23l3 3M6 26l3-3M23 9l3-3"/></svg>
-      <div>
-        <h1>Soleil &amp; protections</h1>
-        <p>Rayonnement solaire à Paris et efficacité des protections extérieures mobiles</p>
-      </div>
-    </div>
-    <nav class="top-nav">
+    <nav class="top-nav" aria-label="Sections">
       <a href="#simulateur">Simulateur</a>
       <a href="#comprendre">Comprendre</a>
       <a href="#methode">Méthode</a>
     </nav>
+    <a class="logo" href="#" aria-label="Tracés, retour en haut">tracés</a>
   </header>
 
-  <main id="simulateur" class="app">
-    <!-- ================= Paramètres ================= -->
-    <aside class="panel" aria-label="Paramètres">
-      <section class="group">
-        <h2><span class="step">1</span> Orientation de la façade</h2>
-        <div class="orient">
-          <div class="rose" id="rose" role="radiogroup" aria-label="Orientation">
-            <!-- boutons générés -->
+  <!-- ================= Couverture ================= -->
+  <section class="hero">
+    <div class="hero-meta reveal">
+      <span>Outil pédagogique</span><i aria-hidden="true">•</i><span>Paris, 48,86° N</span>
+    </div>
+    <h1 class="hero-title reveal">Soleil &amp;<br>protections</h1>
+    <p class="hero-lede reveal">Suivez le soleil sur une façade parisienne, heure par heure et saison par saison, et mesurez ce que volets, stores et brise-soleil arrêtent vraiment.</p>
+  </section>
+
+  <section class="manifesto" aria-label="Introduction">
+    <div class="manifesto-label">Pourquoi</div>
+    <p class="manifesto-text" data-scrub>
+      Une fenêtre au soleil d'été fait entrer autant de chaleur qu'un radiateur allumé. La protection qui l'arrête se trouve dehors, avant la vitre, et elle n'est efficace que bien orientée et fermée au bon moment. Ce simulateur montre pourquoi, pour votre fenêtre et votre orientation.
+    </p>
+  </section>
+
+  <!-- ================= Simulateur ================= -->
+  <section id="simulateur" class="block">
+    <header class="block-head reveal">
+      <span class="num">01</span>
+      <h2>Simulateur</h2>
+      <p>Choisissez une orientation, une fenêtre et une protection, puis faites défiler les heures et les saisons.</p>
+    </header>
+
+    <div class="app">
+      <!-- Paramètres -->
+      <aside class="panel" aria-label="Paramètres">
+        <section class="group">
+          <h3><span class="step">A</span> Orientation de la façade</h3>
+          <div class="orient">
+            <div class="rose" id="rose" role="radiogroup" aria-label="Orientation"></div>
+            <div class="field">
+              <label for="facadeAz">Azimut de la normale <output id="facadeAzOut"></output></label>
+              <input type="range" id="facadeAz" min="0" max="355" step="5">
+              <p class="hint">La fenêtre « regarde » dans cette direction. 180° = plein sud.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="group">
+          <h3><span class="step">B</span> Fenêtre</h3>
+          <div class="field-row">
+            <div class="field">
+              <label for="W">Largeur <output id="WOut"></output></label>
+              <input type="range" id="W" min="0.6" max="2.4" step="0.05">
+            </div>
+            <div class="field">
+              <label for="H">Hauteur <output id="HOut"></output></label>
+              <input type="range" id="H" min="0.8" max="2.2" step="0.05">
+            </div>
           </div>
           <div class="field">
-            <label for="facadeAz">Azimut de la normale <output id="facadeAzOut"></output></label>
-            <input type="range" id="facadeAz" min="0" max="355" step="5">
-            <p class="hint">La fenêtre « regarde » dans cette direction. 180° = plein sud.</p>
+            <label for="e">Profondeur du tableau <output id="eOut"></output></label>
+            <input type="range" id="e" min="0" max="0.5" step="0.01">
+            <p class="hint">Retrait du vitrage par rapport au nu de la façade (mur haussmannien : 30 à 40 cm).</p>
+          </div>
+          <div class="field">
+            <label for="glazing">Vitrage</label>
+            <select id="glazing"></select>
+          </div>
+        </section>
+
+        <section class="group">
+          <h3><span class="step">C</span> Protection solaire</h3>
+          <div class="types" id="types" role="radiogroup" aria-label="Type de protection"></div>
+          <p class="type-desc" id="typeDesc"></p>
+
+          <div class="params">
+            <div class="field" data-for="roulant bso screen accordeon banne">
+              <label for="deploy"><span id="deployLabel">Déploiement</span> <output id="deployOut"></output></label>
+              <input type="range" id="deploy" min="0" max="1" step="0.05">
+            </div>
+            <div class="field" data-for="bso">
+              <label for="slatAngle">Inclinaison des lames <output id="slatAngleOut"></output></label>
+              <input type="range" id="slatAngle" min="0" max="85" step="5">
+              <p class="hint">0° : lames horizontales. Plus l'angle augmente, plus le store se ferme.</p>
+            </div>
+            <div class="field" data-for="battants">
+              <label for="openAngle">Ouverture des vantaux <output id="openAngleOut"></output></label>
+              <input type="range" id="openAngle" min="0" max="180" step="5">
+              <p class="hint">0° : fermés. 90° : perpendiculaires au mur. 180° : rabattus contre la façade.</p>
+            </div>
+            <div class="field" data-for="battants accordeon">
+              <span class="label">Remplissage</span>
+              <div class="seg" id="louvered">
+                <button type="button" data-v="true">Persiennes</button>
+                <button type="button" data-v="false">Plein</button>
+              </div>
+            </div>
+            <div class="field" data-for="screen">
+              <span class="label">Coefficient d'ouverture de la toile</span>
+              <div class="seg" id="openness">
+                <button type="button" data-v="1">1 %</button>
+                <button type="button" data-v="3">3 %</button>
+                <button type="button" data-v="5">5 %</button>
+                <button type="button" data-v="10">10 %</button>
+              </div>
+            </div>
+            <div class="field check" data-for="roulant">
+              <label><input type="checkbox" id="ajoure"> Lames ajourées (filtrent la lumière une fois baissé)</label>
+            </div>
+            <div class="field" data-for="banne">
+              <label for="bannePro">Avancée <output id="banneProOut"></output></label>
+              <input type="range" id="bannePro" min="0.6" max="3" step="0.1">
+            </div>
+            <div class="field" data-for="banne">
+              <label for="banneAngle">Inclinaison <output id="banneAngleOut"></output></label>
+              <input type="range" id="banneAngle" min="5" max="70" step="5">
+            </div>
+            <div class="field" data-for="battants accordeon roulant bso screen banne">
+              <span class="label">Teinte</span>
+              <div class="seg" id="color">
+                <button type="button" data-v="clair">Claire</button>
+                <button type="button" data-v="moyen">Moyenne</button>
+                <button type="button" data-v="fonce">Foncée</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </aside>
+
+      <!-- Vue & temps -->
+      <section class="stage">
+        <div class="viewer" id="viewer">
+          <div class="view-switch seg seg-float" id="view" role="radiogroup" aria-label="Point de vue">
+            <button type="button" data-v="ext">Extérieur</button>
+            <button type="button" data-v="int">Intérieur</button>
+            <button type="button" data-v="coupe">Coupe</button>
+          </div>
+          <div class="sun-badge" id="sunBadge" aria-live="polite"></div>
+          <div class="viewer-hint">Glisser pour tourner · Ctrl + molette pour zoomer</div>
+        </div>
+
+        <div class="timebar">
+          <div class="time-row">
+            <button type="button" class="play" id="play" aria-label="Animer la journée">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico-play" d="M8 5v14l11-7z"/><path class="ico-pause" d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+            </button>
+            <div class="field grow">
+              <label for="hour">Heure légale <output id="hourOut" class="big"></output></label>
+              <input type="range" id="hour" min="0" max="24" step="0.0833333">
+            </div>
+          </div>
+          <div class="time-row">
+            <div class="field grow">
+              <label for="doy">Date <output id="doyOut" class="big"></output></label>
+              <input type="range" id="doy" min="1" max="365" step="1">
+            </div>
+            <div class="presets" id="presets">
+              <button type="button" data-doy="355">Hiver</button>
+              <button type="button" data-doy="80">Équinoxe</button>
+              <button type="button" data-doy="172">Été</button>
+              <button type="button" data-doy="227">Canicule d'août</button>
+            </div>
           </div>
         </div>
       </section>
 
-      <section class="group">
-        <h2><span class="step">2</span> Fenêtre</h2>
-        <div class="field-row">
-          <div class="field">
-            <label for="W">Largeur <output id="WOut"></output></label>
-            <input type="range" id="W" min="0.6" max="2.4" step="0.05">
+      <!-- Résultats -->
+      <section class="results" aria-label="Résultats">
+        <div class="kpis" id="kpis"></div>
+
+        <article class="card span-2">
+          <header class="card-head">
+            <div>
+              <h3>Chaleur solaire entrant par la fenêtre</h3>
+              <p class="sub" id="daySub"></p>
+            </div>
+            <div class="legend">
+              <span><i class="sw sw-2"></i>Sans protection</span>
+              <span><i class="sw sw-1"></i>Avec protection</span>
+            </div>
+          </header>
+          <div class="chart" id="dayChart"></div>
+          <div class="totals" id="dayTotals"></div>
+        </article>
+
+        <article class="card">
+          <header class="card-head">
+            <div>
+              <h3>Course du soleil</h3>
+              <p class="sub">Vue du ciel, nord en haut. Zone grisée : soleil derrière la façade.</p>
+            </div>
+          </header>
+          <div class="chart sunpath" id="sunPath"></div>
+          <div class="sun-facts" id="sunFacts"></div>
+        </article>
+
+        <article class="card">
+          <header class="card-head">
+            <div>
+              <h3>À retenir</h3>
+              <p class="sub" id="insightSub"></p>
+            </div>
+          </header>
+          <div class="insights" id="insights"></div>
+        </article>
+
+        <article class="card span-2">
+          <header class="card-head">
+            <div>
+              <h3>Comparer les protections</h3>
+              <p class="sub" id="cmpSub"></p>
+            </div>
+          </header>
+          <div class="cmp-head">
+            <span>Protection</span><span>Rayonnement arrêté</span><span>Lumière</span><span>kWh/j</span>
           </div>
-          <div class="field">
-            <label for="H">Hauteur <output id="HOut"></output></label>
-            <input type="range" id="H" min="0.8" max="2.2" step="0.05">
-          </div>
-        </div>
-        <div class="field">
-          <label for="e">Profondeur du tableau <output id="eOut"></output></label>
-          <input type="range" id="e" min="0" max="0.5" step="0.01">
-          <p class="hint">Retrait du vitrage par rapport au nu de la façade (mur épais de l'haussmannien : 30 à 40 cm).</p>
-        </div>
-        <div class="field">
-          <label for="glazing">Vitrage</label>
-          <select id="glazing"></select>
-        </div>
+          <div id="comparison"></div>
+        </article>
+
+        <article class="card span-2">
+          <header class="card-head">
+            <div>
+              <h3>Au fil de l'année</h3>
+              <p class="sub">Énergie solaire entrant par jour de ciel clair, le 21 de chaque mois.</p>
+            </div>
+            <div class="legend">
+              <span><i class="sw sw-2"></i>Sans protection</span>
+              <span><i class="sw sw-1"></i>Avec protection</span>
+            </div>
+          </header>
+          <div class="chart" id="monthChart"></div>
+          <details class="table-view">
+            <summary>Voir les valeurs en tableau</summary>
+            <div id="monthTable"></div>
+          </details>
+        </article>
       </section>
-
-      <section class="group">
-        <h2><span class="step">3</span> Protection solaire</h2>
-        <div class="types" id="types" role="radiogroup" aria-label="Type de protection"></div>
-        <p class="type-desc" id="typeDesc"></p>
-
-        <div class="params">
-          <div class="field" data-for="roulant bso screen accordeon banne">
-            <label for="deploy"><span id="deployLabel">Déploiement</span> <output id="deployOut"></output></label>
-            <input type="range" id="deploy" min="0" max="1" step="0.05">
-          </div>
-          <div class="field" data-for="bso">
-            <label for="slatAngle">Inclinaison des lames <output id="slatAngleOut"></output></label>
-            <input type="range" id="slatAngle" min="0" max="85" step="5">
-            <p class="hint">0° : lames horizontales. Plus l'angle augmente, plus le store se ferme.</p>
-          </div>
-          <div class="field" data-for="battants">
-            <label for="openAngle">Ouverture des vantaux <output id="openAngleOut"></output></label>
-            <input type="range" id="openAngle" min="0" max="180" step="5">
-            <p class="hint">0° : fermés. 90° : perpendiculaires au mur. 180° : rabattus contre la façade.</p>
-          </div>
-          <div class="field" data-for="battants accordeon">
-            <span class="label">Remplissage</span>
-            <div class="seg" id="louvered">
-              <button type="button" data-v="true">Persiennes</button>
-              <button type="button" data-v="false">Plein</button>
-            </div>
-          </div>
-          <div class="field" data-for="screen">
-            <span class="label">Coefficient d'ouverture de la toile</span>
-            <div class="seg" id="openness">
-              <button type="button" data-v="1">1 %</button>
-              <button type="button" data-v="3">3 %</button>
-              <button type="button" data-v="5">5 %</button>
-              <button type="button" data-v="10">10 %</button>
-            </div>
-          </div>
-          <div class="field check" data-for="roulant">
-            <label><input type="checkbox" id="ajoure"> Lames ajourées (filtrent la lumière une fois baissé)</label>
-          </div>
-          <div class="field" data-for="banne">
-            <label for="bannePro">Avancée <output id="banneProOut"></output></label>
-            <input type="range" id="bannePro" min="0.6" max="3" step="0.1">
-          </div>
-          <div class="field" data-for="banne">
-            <label for="banneAngle">Inclinaison <output id="banneAngleOut"></output></label>
-            <input type="range" id="banneAngle" min="5" max="70" step="5">
-          </div>
-          <div class="field" data-for="battants accordeon roulant bso screen banne">
-            <span class="label">Teinte</span>
-            <div class="seg" id="color">
-              <button type="button" data-v="clair">Claire</button>
-              <button type="button" data-v="moyen">Moyenne</button>
-              <button type="button" data-v="fonce">Foncée</button>
-            </div>
-          </div>
-        </div>
-      </section>
-    </aside>
-
-    <!-- ================= Vue & temps ================= -->
-    <section class="stage">
-      <div class="viewer" id="viewer">
-        <div class="view-switch seg seg-float" id="view" role="radiogroup" aria-label="Point de vue">
-          <button type="button" data-v="ext">Extérieur</button>
-          <button type="button" data-v="int">Intérieur</button>
-          <button type="button" data-v="coupe">Coupe</button>
-        </div>
-        <div class="sun-badge" id="sunBadge" aria-live="polite"></div>
-        <div class="viewer-hint">Glisser pour tourner · molette pour zoomer</div>
-      </div>
-
-      <div class="timebar">
-        <div class="time-row">
-          <button type="button" class="play" id="play" aria-label="Animer la journée">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico-play" d="M8 5v14l11-7z"/><path class="ico-pause" d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
-          </button>
-          <div class="field grow">
-            <label for="hour">Heure légale <output id="hourOut" class="big"></output></label>
-            <input type="range" id="hour" min="0" max="24" step="0.0833333">
-          </div>
-        </div>
-        <div class="time-row">
-          <div class="field grow">
-            <label for="doy">Date <output id="doyOut" class="big"></output></label>
-            <input type="range" id="doy" min="1" max="365" step="1">
-          </div>
-          <div class="presets" id="presets">
-            <button type="button" data-doy="355">Hiver</button>
-            <button type="button" data-doy="80">Équinoxe</button>
-            <button type="button" data-doy="172">Été</button>
-            <button type="button" data-doy="227">Canicule d'août</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ================= Résultats ================= -->
-    <section class="results" aria-label="Résultats">
-      <div class="kpis" id="kpis"></div>
-
-      <article class="card span-2">
-        <header class="card-head">
-          <div>
-            <h3>Chaleur solaire entrant par la fenêtre</h3>
-            <p class="sub" id="daySub"></p>
-          </div>
-          <div class="legend">
-            <span><i class="sw sw-2"></i>Sans protection</span>
-            <span><i class="sw sw-1"></i>Avec protection</span>
-          </div>
-        </header>
-        <div class="chart" id="dayChart"></div>
-        <div class="totals" id="dayTotals"></div>
-      </article>
-
-      <article class="card">
-        <header class="card-head">
-          <div>
-            <h3>Course du soleil</h3>
-            <p class="sub">Vue du ciel, nord en haut. Zone grisée : soleil derrière la façade.</p>
-          </div>
-        </header>
-        <div class="chart sunpath" id="sunPath"></div>
-        <div class="sun-facts" id="sunFacts"></div>
-      </article>
-
-      <article class="card">
-        <header class="card-head">
-          <div>
-            <h3>À retenir</h3>
-            <p class="sub" id="insightSub"></p>
-          </div>
-        </header>
-        <div class="insights" id="insights"></div>
-      </article>
-
-      <article class="card span-2">
-        <header class="card-head">
-          <div>
-            <h3>Comparer les protections</h3>
-            <p class="sub" id="cmpSub"></p>
-          </div>
-        </header>
-        <div class="cmp-head">
-          <span>Protection</span><span>Rayonnement arrêté</span><span>Lumière</span><span>kWh/j</span>
-        </div>
-        <div id="comparison"></div>
-      </article>
-
-      <article class="card span-2">
-        <header class="card-head">
-          <div>
-            <h3>Au fil de l'année</h3>
-            <p class="sub">Énergie solaire entrant par jour de ciel clair, le 21 de chaque mois.</p>
-          </div>
-          <div class="legend">
-            <span><i class="sw sw-2"></i>Sans protection</span>
-            <span><i class="sw sw-1"></i>Avec protection</span>
-          </div>
-        </header>
-        <div class="chart" id="monthChart"></div>
-        <details class="table-view">
-          <summary>Voir les valeurs en tableau</summary>
-          <div id="monthTable"></div>
-        </details>
-      </article>
-    </section>
-  </main>
-
-  <!-- ================= Pédagogie ================= -->
-  <section id="comprendre" class="learn">
-    <h2>Comprendre</h2>
-    <div class="learn-grid">
-      <article>
-        <h3>Le soleil à Paris</h3>
-        <p>À 48,9° de latitude nord, le soleil culmine à environ <strong>64,6°</strong> au solstice d'été et seulement <strong>17,7°</strong> au solstice d'hiver. En juin, il se lève au nord-est et se couche au nord-ouest : il éclaire alors les façades nord tôt le matin et en fin de journée.</p>
-      </article>
-      <article>
-        <h3>Pourquoi protéger à l'extérieur</h3>
-        <p>Le rayonnement qui a traversé la vitre est piégé dans la pièce : c'est l'effet de serre. Une protection extérieure l'arrête <em>avant</em> le vitrage et dissipe à l'air libre la chaleur qu'elle absorbe. À teinte égale, un store extérieur est 2 à 3 fois plus efficace qu'un store intérieur.</p>
-      </article>
-      <article>
-        <h3>Le facteur solaire g</h3>
-        <p>C'est la part de l'énergie solaire reçue par la fenêtre qui finit dans le local. Un double vitrage courant a un g d'environ 0,6. Avec une bonne protection extérieure fermée, le facteur global <em>g<sub>tot</sub></em> tombe sous 0,1 : 90 % de l'énergie est arrêtée.</p>
-      </article>
-      <article>
-        <h3>Orientation : la vraie question</h3>
-        <p>Au <strong>sud</strong>, le soleil d'été est haut : une avancée horizontale (store banne, lames peu inclinées) suffit et laisse entrer le soleil d'hiver. À l'<strong>est</strong> et surtout à l'<strong>ouest</strong>, le soleil arrive bas, presque de face : seules les protections verticales (volets, BSO, screens) l'arrêtent.</p>
-      </article>
-      <article>
-        <h3>Protéger sans s'enfermer</h3>
-        <p>Un volet fermé est efficace mais plonge la pièce dans le noir. Persiennes, lames orientables et toiles laissent entrer la lumière du jour tout en bloquant le rayonnement direct. Observez la colonne « Lumière » du comparatif.</p>
-      </article>
-      <article>
-        <h3>Le bon geste au bon moment</h3>
-        <p>Une protection mobile ne sert que si elle est fermée <em>avant</em> que le soleil n'atteigne la vitre : le matin pour l'est, en début d'après-midi pour l'ouest. Le soir et la nuit, rouvrir pour évacuer la chaleur.</p>
-      </article>
     </div>
   </section>
 
-  <footer id="methode" class="method">
-    <h2>Méthode et limites</h2>
-    <ul>
-      <li><strong>Position du soleil</strong> : algorithme du NOAA, heure légale de Paris (changement d'heure inclus), réfraction atmosphérique prise en compte.</li>
-      <li><strong>Rayonnement</strong> : modèle ASHRAE de ciel clair (coefficients mensuels). Ce sont des journées sans nuages, donc l'enveloppe haute des apports, pas une moyenne météo. Albédo du sol : 0,2.</li>
-      <li><strong>Ombrage</strong> : lancer de rayons depuis une grille de points sur le vitrage, pour le rayonnement direct et pour le diffus du ciel et du sol (supposés isotropes). Tableau, store banne, vantaux et lames sont modélisés géométriquement ; les lames par leur angle de profil.</li>
-      <li><strong>Apports</strong> : méthode simplifiée de la NF EN ISO 52022-1 pour une protection extérieure (g<sub>tot</sub> = τ·g + α·G/G₂ + τ·(1−g)·G/G₁), modulée selon l'angle d'incidence sur le vitrage.</li>
-      <li><strong>Hors modèle</strong> : masques lointains (immeubles voisins, arbres), inertie du bâtiment, ventilation, réflexions multiples dans la pièce. Les résultats servent à comparer des solutions, pas à dimensionner une installation.</li>
-    </ul>
+  <!-- ================= Comprendre ================= -->
+  <section id="comprendre" class="block">
+    <header class="block-head reveal">
+      <span class="num">02</span>
+      <h2>Comprendre</h2>
+      <p>Six idées pour lire les résultats et choisir une protection.</p>
+    </header>
+
+    <ol class="story">
+      <li class="story-item">
+        <span class="story-num">1</span>
+        <div class="story-text reveal">
+          <h3>Le soleil à Paris</h3>
+          <p>À 48,9° de latitude nord, le soleil culmine à 64,6° au solstice d'été et à 17,7° seulement au solstice d'hiver. En juin, il se lève au nord-est et se couche au nord-ouest : il éclaire alors les façades nord tôt le matin et en fin de journée.</p>
+        </div>
+        <figure class="story-fig reveal" style="--fig: var(--c-sun)">
+          <svg viewBox="0 0 400 260" aria-hidden="true" class="fig-svg">
+            <line x1="30" y1="220" x2="370" y2="220" />
+            <path d="M40 220 Q200 -60 360 220" class="arc-strong" />
+            <path d="M110 220 Q200 150 290 220" class="arc-soft" />
+            <circle cx="200" cy="80" r="14" class="dot" />
+            <circle cx="200" cy="185" r="10" class="dot-soft" />
+          </svg>
+          <div class="fig-stat"><b>64,6°</b><span>à midi le 21 juin</span></div>
+          <div class="fig-stat small"><b>17,7°</b><span>à midi le 21 décembre</span></div>
+          <figcaption><b>Hauteur du soleil</b> à midi solaire, Paris.</figcaption>
+        </figure>
+      </li>
+
+      <li class="story-item">
+        <span class="story-num">2</span>
+        <div class="story-text reveal">
+          <h3>Protéger à l'extérieur</h3>
+          <p>Le rayonnement qui a traversé la vitre reste piégé dans la pièce : c'est l'effet de serre. Une protection extérieure l'arrête avant le vitrage et dissipe à l'air libre la chaleur qu'elle absorbe. À teinte égale, un store extérieur est deux à trois fois plus efficace qu'un store intérieur.</p>
+        </div>
+        <figure class="story-fig reveal" style="--fig: var(--c-orange)">
+          <div class="fig-stat hero"><b>×2 à ×3</b><span>d'efficacité pour une protection extérieure</span></div>
+          <figcaption><b>Dehors plutôt que dedans</b> : la chaleur est arrêtée avant la vitre.</figcaption>
+        </figure>
+      </li>
+
+      <li class="story-item">
+        <span class="story-num">3</span>
+        <div class="story-text reveal">
+          <h3>Le facteur solaire g</h3>
+          <p>C'est la part de l'énergie solaire reçue par la fenêtre qui finit dans le local. Un double vitrage courant a un g d'environ 0,6. Avec une bonne protection extérieure fermée, le facteur global g<sub>tot</sub> tombe sous 0,1 : 90 % de l'énergie est arrêtée.</p>
+        </div>
+        <figure class="story-fig reveal" style="--fig: var(--c-blue)">
+          <div class="fig-stat hero"><b>0,6 → 0,1</b><span>facteur solaire, sans puis avec protection</span></div>
+          <figcaption><b>g<sub>tot</sub></b> : la mesure de l'efficacité d'une protection.</figcaption>
+        </figure>
+      </li>
+
+      <li class="story-item">
+        <span class="story-num">4</span>
+        <div class="story-text reveal">
+          <h3>L'orientation d'abord</h3>
+          <p>Au sud, le soleil d'été est haut : une avancée horizontale (store banne, lames peu inclinées) suffit et laisse entrer le soleil d'hiver. À l'est et surtout à l'ouest, le soleil arrive bas, presque de face : seules les protections verticales (volets, BSO, screens) l'arrêtent.</p>
+        </div>
+        <figure class="story-fig reveal" style="--fig: var(--c-coral)">
+          <svg viewBox="0 0 400 260" aria-hidden="true" class="fig-svg">
+            <circle cx="200" cy="130" r="95" />
+            <path d="M200 130 L132.8 197.2 A95 95 0 0 1 132.8 62.8 Z" class="wedge" />
+            <circle cx="200" cy="130" r="5" class="dot" />
+            <text x="200" y="26" text-anchor="middle">N</text>
+            <text x="310" y="136" text-anchor="middle">E</text>
+            <text x="200" y="246" text-anchor="middle">S</text>
+            <text x="90" y="136" text-anchor="middle">O</text>
+          </svg>
+          <div class="fig-stat"><b>Ouest</b><span>l'orientation la plus exposée l'été</span></div>
+          <figcaption><b>Soleil bas de l'après-midi</b>, aux heures les plus chaudes.</figcaption>
+        </figure>
+      </li>
+
+      <li class="story-item">
+        <span class="story-num">5</span>
+        <div class="story-text reveal">
+          <h3>Protéger sans s'enfermer</h3>
+          <p>Un volet fermé est efficace mais plonge la pièce dans le noir. Persiennes, lames orientables et toiles laissent entrer la lumière du jour tout en bloquant le rayonnement direct. La colonne « Lumière » du comparatif le montre pour votre fenêtre.</p>
+        </div>
+        <figure class="story-fig reveal" style="--fig: var(--c-sun)">
+          <svg viewBox="0 0 400 260" aria-hidden="true" class="fig-svg slats">
+            <g>
+              <line x1="120" y1="40" x2="280" y2="60" /><line x1="120" y1="80" x2="280" y2="100" />
+              <line x1="120" y1="120" x2="280" y2="140" /><line x1="120" y1="160" x2="280" y2="180" />
+              <line x1="120" y1="200" x2="280" y2="220" />
+            </g>
+          </svg>
+          <div class="fig-stat"><b>Lames</b><span>bloquer le direct, garder le diffus</span></div>
+          <figcaption><b>Brise-soleil orientable</b> : l'angle des lames suit le soleil.</figcaption>
+        </figure>
+      </li>
+
+      <li class="story-item">
+        <span class="story-num">6</span>
+        <div class="story-text reveal">
+          <h3>Le bon geste au bon moment</h3>
+          <p>Une protection mobile ne sert que si elle est fermée avant que le soleil n'atteigne la vitre : le matin pour l'est, en début d'après-midi pour l'ouest. Le soir et la nuit, il faut rouvrir pour évacuer la chaleur accumulée.</p>
+        </div>
+        <figure class="story-fig reveal dark" style="--fig: var(--ink)">
+          <div class="fig-times">
+            <div><span>Est</span><b>dès le lever</b></div>
+            <div><span>Sud</span><b>vers 11 h</b></div>
+            <div><span>Ouest</span><b>vers 14 h</b></div>
+          </div>
+          <figcaption><b>Fermer</b> avant l'arrivée du soleil, en été.</figcaption>
+        </figure>
+      </li>
+    </ol>
+  </section>
+
+  <!-- ================= Méthode ================= -->
+  <section id="methode" class="block">
+    <header class="block-head reveal">
+      <span class="num">03</span>
+      <h2>Méthode et limites</h2>
+      <p>Ce que calcule l'outil, et ce qu'il ne calcule pas.</p>
+    </header>
+    <dl class="facts">
+      <div class="reveal"><dt>Position du soleil</dt><dd>Algorithme du NOAA, heure légale de Paris (changement d'heure inclus), réfraction atmosphérique prise en compte.</dd></div>
+      <div class="reveal"><dt>Rayonnement</dt><dd>Modèle ASHRAE de ciel clair (coefficients mensuels). Ce sont des journées sans nuages, donc l'enveloppe haute des apports, pas une moyenne météo. Albédo du sol : 0,2.</dd></div>
+      <div class="reveal"><dt>Ombrage</dt><dd>Lancer de rayons depuis une grille de points sur le vitrage, pour le rayonnement direct et pour le diffus du ciel et du sol (supposés isotropes). Tableau, store banne, vantaux et lames sont modélisés géométriquement ; les lames par leur angle de profil.</dd></div>
+      <div class="reveal"><dt>Apports</dt><dd>Méthode simplifiée de la NF EN ISO 52022-1 pour une protection extérieure (g<sub>tot</sub> = τ·g + α·G/G₂ + τ·(1−g)·G/G₁), modulée selon l'angle d'incidence sur le vitrage.</dd></div>
+      <div class="reveal"><dt>Hors modèle</dt><dd>Masques lointains (immeubles voisins, arbres), inertie du bâtiment, ventilation, réflexions multiples dans la pièce. Les résultats servent à comparer des solutions, pas à dimensionner une installation.</dd></div>
+    </dl>
+  </section>
+
+  <footer class="foot">
+    <div class="foot-logo">tracés</div>
+    <div class="foot-cols">
+      <div><b>Soleil &amp; protections</b><span>Simulateur pédagogique</span></div>
+      <div><b>Paris</b><span>48,86° N · 2,35° E</span></div>
+      <div><b>Code source</b><a href="https://github.com/Griso-engineer/soleil-paris">github.com/Griso-engineer/soleil-paris</a></div>
+    </div>
   </footer>
 
+  <script type="module" src="js/reveal.js"></script>
   <script type="module" src="js/main.js"></script>
 </body>
 </html>
