@@ -4,6 +4,8 @@ Simulateur pédagogique en ligne : rayonnement solaire à Paris et efficacité d
 protections solaires extérieures mobiles (volets battants, volets accordéon,
 volet roulant, brise-soleil orientable, store toile, store banne).
 
+**En ligne : https://griso-engineer.github.io/soleil-paris/**
+
 Site 100 % statique : HTML, CSS et JavaScript (modules ES), sans étape de build.
 Three.js est chargé depuis jsDelivr (version figée 0.160.0).
 
