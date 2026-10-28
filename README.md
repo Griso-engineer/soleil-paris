@@ -1,7 +1,7 @@
 # Soleil & protections — Paris
 
 Simulateur pédagogique en ligne : rayonnement solaire à Paris et efficacité des
-protections solaires extérieures mobiles (volets battants, volets accordéon,
+protections solaires extérieures mobiles (volets battants, volets pliants,
 volet roulant, brise-soleil orientable, store toile, store banne).
 
 **En ligne : https://griso-engineer.github.io/soleil-paris/**

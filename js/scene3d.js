@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { sunVectorLocal } from './shading.js';
+import { sunVectorLocal, foldingLeaves } from './shading.js';
 
 const WALL_HALF = 3.2;
 const ROOM_HALF = 2.2;
@@ -46,6 +46,8 @@ function paper(color = 0xffffff, opts = {}) {
 }
 const lineMat = () => new THREE.LineBasicMaterial({ color: INK });
 const greyLine = () => new THREE.LineBasicMaterial({ color: GREY });
+// Lames et petits éléments répétés : un trait plus léger, sinon le dessin noircit
+const lightLine = () => new THREE.LineBasicMaterial({ color: 0x8c8b86 });
 
 export class SolarScene {
   constructor(container) {
@@ -129,8 +131,8 @@ export class SolarScene {
     this.view = view;
     const c = this.center;
     const views = {
-      // axonométrie depuis la rue, légèrement de biais
-      ext: { dir: [0.95, 0.72, 1.0], target: [c.x, c.y + 2.6, 2.2], half: 7.0 },
+      // axonométrie depuis la rue, de biais par la gauche (le sud-ouest pour une façade sud)
+      ext: { dir: [-0.95, 0.72, 1.0], target: [c.x, c.y + 2.6, 2.2], half: 7.0 },
       // pièce vue d'en haut, plafond et deux murs ôtés
       int: { dir: [0.9, 1.25, -1.05], target: [0, 0.9, -1.9], half: 3.3 },
       // coupe par l'axe de la fenêtre
@@ -446,7 +448,7 @@ export class SolarScene {
     const slats = (parent, x0, x1, yTop, height, z, slat, beta, thick = 0.006) => {
       const n = Math.round(height / slat.s);
       for (let i = 0; i < n; i++) {
-        const m = box(parent, x0, x1, -thick / 2, thick / 2, -slat.w / 2, slat.w / 2, mat);
+        const m = box(parent, x0, x1, -thick / 2, thick / 2, -slat.w / 2, slat.w / 2, mat, { line: lightLine() });
         m.position.set(0, yTop - (i + 0.5) * slat.s, z);
         m.rotation.x = (beta * Math.PI) / 180;
       }
@@ -467,7 +469,7 @@ export class SolarScene {
           for (let y = sill + H - 0.055; y > sill + H - h; y -= 0.055) {
             l.push(-W / 2 + 0.03, y, zp + 0.008, W / 2 - 0.03, y, zp + 0.008);
           }
-          g.add(segments(l, lineMat()));
+          g.add(segments(l, lightLine()));
         }
         break;
       }
@@ -492,28 +494,32 @@ export class SolarScene {
         break;
       }
       case 'accordeon': {
-        const c = (W / 2) * d;
-        for (const side of [-1, 1]) {
-          const x0 = side < 0 ? -W / 2 : W / 2 - c;
-          const x1 = side < 0 ? -W / 2 + c : W / 2;
-          if (c > 0.02) {
-            const panels = Math.max(1, Math.round(c / 0.18));
-            for (let i = 0; i <= panels; i++) {
-              const x = x0 + (i / panels) * (x1 - x0);
-              box(g, x - 0.008, x + 0.008, sill, sill + H, zp - 0.015, zp + 0.015, mat);
+        // Feuilles articulées en zigzag : même géométrie que le calcul (foldingLeaves)
+        const t = 0.022;
+        for (const leaf of foldingLeaves(cfg)) {
+          const pivot = new THREE.Group();
+          pivot.position.set(leaf.o.x, sill, leaf.o.z);
+          pivot.rotation.y = Math.atan2(-leaf.dir.z, leaf.dir.x);
+          g.add(pivot);
+          const L = leaf.L;
+          const st = 0.035;
+          if (cfg.louvered) {
+            box(pivot, 0, st, 0, H, -t / 2, t / 2, mat);
+            box(pivot, L - st, L, 0, H, -t / 2, t / 2, mat);
+            box(pivot, 0, L, 0, st * 1.5, -t / 2, t / 2, mat);
+            box(pivot, 0, L, H - st * 1.5, H, -t / 2, t / 2, mat);
+            const n = Math.round((H - 3 * st) / PERSIENNE.s);
+            for (let i = 0; i < n; i++) {
+              const m = box(pivot, st, L - st, -0.002, 0.002, -t / 2, t / 2, mat, { line: lightLine() });
+              m.position.y = H - st * 1.5 - (i + 0.5) * PERSIENNE.s;
+              m.rotation.x = (PERSIENNE.beta * Math.PI) / 180;
             }
-            if (cfg.louvered) {
-              const grp = new THREE.Group();
-              g.add(grp);
-              slats(grp, x0, x1, sill + H, H, zp, PERSIENNE, PERSIENNE.beta, 0.004);
-            } else {
-              box(g, x0, x1, sill, sill + H, zp - 0.007, zp + 0.007, mat);
-            }
+          } else {
+            box(pivot, 0, L, 0, H, -t / 2, t / 2, mat);
           }
-          const pack = 0.04 + 0.06 * (1 - d);
-          if (d < 0.98) {
-            const px = side < 0 ? -W / 2 + pack / 2 : W / 2 - pack / 2;
-            box(g, px - pack / 2, px + pack / 2, sill, sill + H, zp - 0.025, zp + 0.025, mat);
+          // charnières entre feuilles
+          if (leaf.k > 0) {
+            for (const y of [0.25, H / 2, H - 0.25]) box(pivot, -0.008, 0.008, y - 0.04, y + 0.04, -t / 2 - 0.006, t / 2 + 0.006, mat, { cast: false });
           }
         }
         break;
@@ -537,7 +543,7 @@ export class SolarScene {
             box(pivot, xa, xb, H - st, H, -0.015, 0.015, mat);
             const n = Math.round((H - 2 * st) / PERSIENNE.s);
             for (let i = 0; i < n; i++) {
-              const m = box(pivot, xa + st, xb - st, -0.0025, 0.0025, -PERSIENNE.w / 2, PERSIENNE.w / 2, mat);
+              const m = box(pivot, xa + st, xb - st, -0.0025, 0.0025, -PERSIENNE.w / 2, PERSIENNE.w / 2, mat, { line: lightLine() });
               m.position.y = H - st - (i + 0.5) * PERSIENNE.s;
               m.rotation.x = (PERSIENNE.beta * Math.PI) / 180;
             }
@@ -690,13 +696,13 @@ export class SolarScene {
 // ---------- Utilitaires de dessin ----------
 
 /** Boîte alignée (coordonnées min/max), cernée d'un trait noir. */
-function box(parent, x0, x1, y0, y1, z0, z1, mat, { cast = true, edges = true } = {}) {
+function box(parent, x0, x1, y0, y1, z0, z1, mat, { cast = true, edges = true, line = null } = {}) {
   const geo = new THREE.BoxGeometry(Math.max(1e-4, x1 - x0), Math.max(1e-4, y1 - y0), Math.max(1e-4, z1 - z0));
   const m = new THREE.Mesh(geo, mat);
   m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
   m.castShadow = cast;
   m.receiveShadow = true;
-  if (edges) m.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), lineMat()));
+  if (edges) m.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), line || lineMat()));
   parent.add(m);
   return m;
 }

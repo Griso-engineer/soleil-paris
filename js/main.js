@@ -16,9 +16,11 @@ const $ = (id) => document.getElementById(id);
 
 const state = {
   ...defaultConfig(),
-  facadeAz: 225,
+  facadeAz: 180,
+  type: 'battants',
+  openAngle: 55,
   doy: 202,
-  hour: 16,
+  hour: 14,
   view: 'ext',
 };
 readURL();
@@ -39,7 +41,7 @@ const DEPLOY_LABEL = {
   roulant: 'Tablier baissé',
   bso: 'Store descendu',
   screen: 'Toile déroulée',
-  accordeon: 'Fermeture',
+  accordeon: 'Fermeture (0 % : repliés dans le tableau)',
   banne: 'Déploiement',
 };
 
@@ -251,7 +253,7 @@ const COMPARE = [
   { type: 'none', label: 'Aucune', setting: 'référence', patch: {} },
   { type: 'battants', label: 'Volets battants', setting: 'fermés, persiennés', patch: { openAngle: 0, louvered: true } },
   { type: 'battants', label: 'Volets battants', setting: 'ouverts à 90°', patch: { openAngle: 90, louvered: false } },
-  { type: 'accordeon', label: 'Volets accordéon', setting: 'fermés, persiennés', patch: { deploy: 1, louvered: true } },
+  { type: 'accordeon', label: 'Volets pliants', setting: 'fermés, persiennés', patch: { deploy: 1, louvered: true } },
   { type: 'roulant', label: 'Volet roulant', setting: 'baissé', patch: { deploy: 1, ajoure: false } },
   { type: 'roulant', label: 'Volet roulant', setting: 'à mi-hauteur', patch: { deploy: 0.5 } },
   { type: 'bso', label: 'Brise-soleil orientable', setting: 'lames à 45°', patch: { deploy: 1, slatAngle: 45 } },
@@ -321,7 +323,7 @@ function recomputeSlow() {
 function settingLabel() {
   switch (state.type) {
     case 'battants': return `${state.openAngle}°, ${state.louvered ? 'persiennés' : 'pleins'}`;
-    case 'accordeon': return `fermé à ${Math.round(state.deploy * 100)} %`;
+    case 'accordeon': return `fermés à ${Math.round(state.deploy * 100)} %`;
     case 'roulant': return `baissé à ${Math.round(state.deploy * 100)} %`;
     case 'bso': return `${Math.round(state.deploy * 100)} %, lames à ${state.slatAngle}°`;
     case 'screen': return `${Math.round(state.deploy * 100)} %, toile ${state.openness} %`;
@@ -494,7 +496,8 @@ function protectionTip(oc) {
   if (t === 'bso' && state.slatAngle < 25) return 'Lames presque horizontales : le soleil haut est arrêté, mais le soleil bas passe entre les lames. Inclinez-les davantage quand le soleil descend.';
   if (t === 'bso') return 'Le BSO s\'ajuste à la hauteur du soleil : il suffit de fermer les lames juste assez pour couper le rayonnement direct, et la lumière diffuse continue d\'entrer.';
   if (t === 'screen') return `Avec une toile à ${state.openness} %, on garde une vue voilée vers l'extérieur. Une toile foncée offre une meilleure vision au travers ; une toile claire renvoie plus de rayonnement.`;
-  if (t === 'accordeon') return state.louvered ? 'Persiennées, les volets accordéon bloquent le soleil direct tout en laissant passer l\'air et un peu de lumière, comme des persiennes parisiennes.' : 'Pleins, les volets accordéon occultent complètement : efficaces, mais la pièce reste dans le noir.';
+  if (t === 'accordeon' && state.deploy < 0.95) return 'Entrouverts, les volets pliants forment un zigzag dans le tableau : leurs feuilles obliques coupent une partie du soleil rasant, comme des ailettes.';
+  if (t === 'accordeon') return state.louvered ? 'Persiennés, les volets pliants bloquent le soleil direct tout en laissant passer l\'air et un peu de lumière, comme des persiennes parisiennes.' : 'Pleins, les volets pliants occultent complètement : efficaces, mais la pièce reste dans le noir.';
   if (state.color === 'fonce') return 'Une teinte foncée absorbe davantage : une petite partie de cette chaleur rejoint la vitre. À l\'extérieur, l\'effet reste modeste.';
   return PROTECTIONS[t].text;
 }

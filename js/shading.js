@@ -42,10 +42,10 @@ export const PROTECTIONS = {
     text: "Fermés, ils bloquent presque tout. Ouverts à 90°, les vantaux jouent le rôle d'ailettes verticales et coupent le soleil rasant d'est ou d'ouest. Persiennés, ils laissent passer air et lumière diffuse.",
   },
   accordeon: {
-    label: 'Volets accordéon',
-    short: 'Panneaux pliants repliés en tableau',
-    view: 'Réduite',
-    text: "Volets repliables (souvent métalliques et persiennés) qui se replient dans le tableau. On les ferme partiellement en tirant les panneaux depuis les côtés.",
+    label: 'Volets pliants',
+    short: 'Feuilles articulées repliées dans le tableau',
+    view: 'Nulle fermés, totale repliés',
+    text: "Persiennes repliables : de chaque côté, deux ou trois feuilles étroites articulées entre elles se replient en zigzag dans l'épaisseur du tableau. Fermées, elles couvrent la baie comme des volets battants ; à mi-course, leurs feuilles obliques font ailettes.",
   },
   roulant: {
     label: 'Volet roulant',
@@ -186,13 +186,16 @@ export function buildGeometry(cfg) {
       break;
     }
     case 'accordeon': {
-      const n = { x: 0, y: 0, z: 1 };
-      const half = (W / 2) * (1 - d);
-      geo.plane = {
-        z: zp,
-        covers: (x) => Math.abs(x) > half,
-        mat: (dir) => (cfg.louvered ? louver(dir, n, PERSIENNE, PERSIENNE.beta, rhoC) : opaque(rhoC)),
-      };
+      // Volets pliants : chaque feuille est un rectangle vertical, comme un vantail.
+      const v = { x: 0, y: H, z: 0 };
+      for (const leaf of foldingLeaves(cfg)) {
+        const u = { x: leaf.dir.x * leaf.L, y: 0, z: leaf.dir.z * leaf.L };
+        const n = normalize(cross(u, v));
+        geo.quads.push({
+          o: { x: leaf.o.x, y: 0, z: leaf.o.z }, u, v, n, near: 1,
+          mat: (dir) => (cfg.louvered ? louver(dir, n, PERSIENNE, PERSIENNE.beta, rhoC) : opaque(rhoC)),
+        });
+      }
       break;
     }
     case 'battants': {
@@ -232,6 +235,38 @@ export function buildGeometry(cfg) {
       break;
   }
   return geo;
+}
+
+/**
+ * Géométrie des volets pliants, partagée par le calcul et la vue 3D.
+ * De chaque côté, n feuilles de largeur L articulées entre elles. La première est
+ * ferrée sur le jambage, juste derrière le nu de la façade. Fermées (deploy = 1),
+ * les feuilles sont dans le plan de la baie ; en s'ouvrant elles se replient en
+ * zigzag vers l'intérieur du tableau, jusqu'à se ranger perpendiculaires au mur.
+ * Renvoie [{ o: {x, z}, dir: {x, z}, L, side, k }] (o : arête de départ, en pied).
+ */
+export function foldingLeaves(cfg) {
+  const { W, e } = cfg;
+  const d = Math.max(0, Math.min(1, cfg.deploy));
+  const zf = Math.max(0.03, e - 0.03);
+  const depth = Math.max(0.06, zf - 0.04); // place disponible devant la menuiserie
+  const n = Math.min(4, Math.max(2, Math.ceil(W / 2 / Math.max(0.15, depth))));
+  const L = W / 2 / n;
+  // Le zigzag ne peut pas s'enfoncer plus profond que le tableau.
+  const maxFold = Math.asin(Math.min(1, depth / L));
+  const theta = Math.min((1 - d) * (Math.PI / 2), maxFold);
+  const leaves = [];
+  for (const side of [-1, 1]) {
+    let x = (side * W) / 2;
+    let z = zf;
+    for (let k = 0; k < n; k++) {
+      const dir = { x: -side * Math.cos(theta), z: (k % 2 === 0 ? -1 : 1) * Math.sin(theta) };
+      leaves.push({ o: { x, z }, dir, L, side, k });
+      x += dir.x * L;
+      z += dir.z * L;
+    }
+  }
+  return leaves;
 }
 
 function cross(a, b) {
