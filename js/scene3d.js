@@ -369,7 +369,7 @@ export class SolarScene {
     const warm = new THREE.Color(0xffa45c).lerp(new THREE.Color(0xfff4e2), up);
     this.sun.color.copy(warm);
     this.sunDisc.material.color.copy(new THREE.Color(0xff9b4a).lerp(new THREE.Color(0xffe08a), up));
-    const night = new THREE.Color(0x1b1d22);
+    const night = new THREE.Color(0x8796b3);
     const dusk = new THREE.Color(0xffca7d);
     const day = new THREE.Color(0xd6e6fb);
     const sky = sun.altitude < 0
