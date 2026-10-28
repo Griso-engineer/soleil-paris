@@ -14,9 +14,9 @@ const SLAB = 0.25;
 const WALL_BOTTOM = -0.95;
 const WALL_TOP = 3.75;
 const INNER = -0.2; // nu intérieur du mur de façade
-const DOME = 2.9; // rayon de la course du soleil dessinée autour de la fenêtre
+const DOME = 4.4; // rayon de l'héliodon dessiné autour de la fenêtre
 
-const AMBIENT = 2.3; // gris de l'ombre : ~#dcdcdc
+const AMBIENT = 1.3; // gris de l'ombre, assez marqué pour lire les ombres portées
 const INK = 0x111110;
 const GREY = 0x9a9994;
 const SUN_FILL = '#ffca7d';
@@ -77,9 +77,9 @@ export class SolarScene {
     this.scene.add(this.ambient);
     this.sun = new THREE.DirectionalLight(0xffffff, 2.4);
     this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.shadow.mapSize.set(4096, 4096);
     const sc = this.sun.shadow.camera;
-    sc.left = -7; sc.right = 7; sc.top = 7; sc.bottom = -7; sc.near = 1; sc.far = 60;
+    sc.left = -6; sc.right = 6; sc.top = 6; sc.bottom = -6; sc.near = 1; sc.far = 60;
     this.sun.shadow.bias = -0.0006;
     this.sun.shadow.normalBias = 0.02;
     this.scene.add(this.sun, this.sun.target);
@@ -87,8 +87,7 @@ export class SolarScene {
     this.building = new THREE.Group();
     this.prot = new THREE.Group();
     this.sunGroup = new THREE.Group();
-    this.north = new THREE.Group();
-    this.scene.add(this.building, this.prot, this.sunGroup, this.north);
+    this.scene.add(this.building, this.prot, this.sunGroup);
     this.hidden = { int: [], coupe: [] };
 
     this.view = 'ext';
@@ -130,11 +129,11 @@ export class SolarScene {
     const c = this.center;
     const views = {
       // axonométrie depuis la rue, légèrement de biais
-      ext: { dir: [0.95, 0.72, 1.0], target: [c.x, c.y + 0.5, 0.8], half: 2.7 },
+      ext: { dir: [0.95, 0.72, 1.0], target: [c.x, c.y + 1.3, 1.2], half: 4.1 },
       // pièce vue d'en haut, plafond et deux murs ôtés
       int: { dir: [0.9, 1.25, -1.05], target: [0, 0.9, -1.9], half: 3.3 },
       // coupe par l'axe de la fenêtre
-      coupe: { dir: [1, 0.42, 0.32], target: [0, 1.5, -0.9], half: 2.9 },
+      coupe: { dir: [1, 0.42, 0.32], target: [0, 2.0, 0.2], half: 4.0 },
     };
     const v = views[view];
     const d = new THREE.Vector3(...v.dir).normalize().multiplyScalar(30);
@@ -145,9 +144,22 @@ export class SolarScene {
     this.updateFrustum();
     this.controls.update();
     this.applyHidden();
-    this.north.visible = view === 'ext';
     this.sunGroup.visible = view !== 'int';
+    this.applyViewDetails();
     this.applyClip();
+  }
+
+  // Vitrage opaque dehors et en coupe, transparent depuis la pièce ; hachures en coupe.
+  applyViewDetails() {
+    if (this.glass) {
+      const m = this.glass.material;
+      const inside = this.view === 'int';
+      m.transparent = inside;
+      m.opacity = inside ? 0.2 : 1;
+      m.depthWrite = !inside;
+      m.needsUpdate = true;
+    }
+    if (this.section) this.section.visible = this.view === 'coupe';
   }
 
   // Les murs ôtés pour la vue intérieure ne s'écrivent plus à l'écran mais portent
@@ -212,33 +224,26 @@ export class SolarScene {
     hole.closePath();
     shape.holes.push(hole);
     const wallGeo = new THREE.ExtrudeGeometry(shape, { depth: e - INNER, bevelEnabled: false });
-    const wall = new THREE.Mesh(wallGeo, stone);
+    // Les UV des faces de l'extrusion sont en mètres : la texture de calepinage tombe à l'échelle.
+    const ashlar = ashlarTexture();
+    ashlar.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+    const wall = new THREE.Mesh(wallGeo, paper(0xffffff, { map: ashlar }));
     wall.position.z = INNER;
     wall.castShadow = true;
     wall.receiveShadow = true;
     wall.add(new THREE.LineSegments(new THREE.EdgesGeometry(wallGeo, 20), lineMat()));
     g.add(wall);
+    // Enduit lisse côté pièce, pour que le calepinage ne paraisse qu'à l'extérieur
+    const plaster = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.004, bevelEnabled: false }), stone);
+    plaster.position.z = INNER - 0.004;
+    plaster.receiveShadow = true;
+    g.add(plaster);
 
     // Bandeaux filants au droit des planchers
     const band = (y0, y1, proud) => box(g, -WALL_HALF, WALL_HALF, y0, y1, e, e + proud, stone, { cast: false });
     band(-SLAB - 0.05, 0.02, 0.06);
     band(CEIL + SLAB - 0.04, CEIL + SLAB + 0.16, 0.09);
     band(CEIL + SLAB + 0.16, CEIL + SLAB + 0.22, 0.13);
-
-    // Refends : joints horizontaux de la pierre, interrompus par la baie et son chambranle
-    const joints = [];
-    const pitch = 0.36;
-    for (let y = WALL_BOTTOM + pitch; y < WALL_TOP - 0.05; y += pitch) {
-      if (y > -SLAB - 0.06 && y < 0.03) continue;
-      if (y > CEIL + SLAB - 0.05 && y < CEIL + SLAB + 0.23) continue;
-      const z = e + 0.002;
-      if (y > sill - 0.02 && y < top + 0.14) {
-        joints.push(-WALL_HALF, y, z, -W / 2 - 0.12, y, z, W / 2 + 0.12, y, z, WALL_HALF, y, z);
-      } else {
-        joints.push(-WALL_HALF, y, z, WALL_HALF, y, z);
-      }
-    }
-    g.add(segments(joints, greyLine()));
 
     // Chambranle autour de la baie
     const ch = 0.12;
@@ -291,7 +296,7 @@ export class SolarScene {
       box(g, cx + lx - 0.015, cx + lx + 0.015, 0, 0.44, cz2 + lz - 0.015, cz2 + lz + 0.015, stone);
     }
 
-    // --- Menuiserie : fenêtre à la française, deux vantaux à petits-bois ---
+    // --- Menuiserie : fenêtre à la française, deux vantaux à grand vitrage ---
     const wood = paper(0xffffff);
     const fd = 0.06; // épaisseur
     const f = 0.055; // dormant
@@ -305,7 +310,6 @@ export class SolarScene {
     const y0 = sill + (sill === 0 ? 0.1 : f);
     const y1 = top - f;
     const of = 0.05; // ouvrant
-    const diag = [];
     for (let i = 0; i < leaves; i++) {
       const x0 = -W / 2 + f + i * lw;
       const x1 = x0 + lw;
@@ -313,44 +317,46 @@ export class SolarScene {
       box(g, x1 - of, x1, y0, y1, -fd / 2 + 0.005, fd / 2 - 0.005, wood);
       box(g, x0, x1, y0, y0 + (sill === 0 ? 0.14 : of), -fd / 2 + 0.005, fd / 2 - 0.005, wood);
       box(g, x0, x1, y1 - of, y1, -fd / 2 + 0.005, fd / 2 - 0.005, wood);
-      // petits-bois : carreaux d'environ 45 cm de haut
-      const gy0 = y0 + (sill === 0 ? 0.14 : of);
-      const gy1 = y1 - of;
-      const n = Math.max(1, Math.round((gy1 - gy0) / 0.45));
-      for (let k = 1; k < n; k++) {
-        const y = gy0 + ((gy1 - gy0) * k) / n;
-        box(g, x0 + of, x1 - of, y - 0.0125, y + 0.0125, -0.015, 0.015, wood);
-      }
-      // deux traits de reflet sur le vitrage, convention de dessin
-      const px = x0 + of + 0.06;
-      const py = gy1 - 0.08;
-      diag.push(px, py - 0.12, 0.004, px + 0.12, py, 0.004, px, py - 0.22, 0.004, px + 0.2, py - 0.02, 0.004);
     }
-    g.add(segments(diag, greyLine()));
 
-    const glass = new THREE.Mesh(
+    // Vitrage : un plan qui reçoit les ombres portées, opaque dehors et en coupe,
+    // transparent depuis l'intérieur. Il ne porte pas d'ombre (la lumière le traverse).
+    this.glass = new THREE.Mesh(
       new THREE.PlaneGeometry(W - 2 * f, H - 2 * f),
-      new THREE.MeshBasicMaterial({ color: 0xe8eef3, transparent: true, opacity: 0.25, depthWrite: false, side: THREE.DoubleSide })
+      paper(0xf4f6f8, { side: THREE.DoubleSide })
     );
-    glass.position.set(0, sill + H / 2, 0);
-    g.add(glass);
+    this.glass.position.set(0, sill + H / 2, 0);
+    this.glass.receiveShadow = true;
+    this.glass.castShadow = false;
+    g.add(this.glass);
 
-    // Garde-corps en ferronnerie devant une porte-fenêtre (non pris en compte dans le calcul)
-    if (sill < 0.5) {
-      const iron = paper(0xffffff);
-      const zr = e - 0.025;
-      const h = 1.0;
-      box(g, -W / 2, W / 2, h - 0.03, h, zr - 0.015, zr + 0.015, iron, { cast: false, edges: true });
-      box(g, -W / 2, W / 2, 0.08, 0.1, zr - 0.01, zr + 0.01, iron, { cast: false });
-      const bars = [];
-      for (let x = -W / 2 + 0.06; x < W / 2 - 0.03; x += 0.11) bars.push(x, 0.1, zr, x, h - 0.03, zr);
-      g.add(segments(bars, lineMat()));
-    }
+    // Hachures des parties coupées, visibles en vue Coupe
+    this.section = new THREE.Group();
+    const cut = (z0, z1, ya, yb) => {
+      const tex = hatchTexture();
+      tex.repeat.set((z1 - z0) / 0.4, (yb - ya) / 0.4);
+      const m = new THREE.Mesh(
+        new THREE.PlaneGeometry(z1 - z0, yb - ya),
+        new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide })
+      );
+      m.rotation.y = Math.PI / 2;
+      m.position.set(0, (ya + yb) / 2, (z0 + z1) / 2);
+      const outline = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), lineMat());
+      m.add(outline);
+      this.section.add(m);
+    };
+    cut(INNER, e, WALL_BOTTOM, sill);
+    cut(INNER, e, top, WALL_TOP);
+    cut(-ROOM_DEPTH, INNER, -SLAB, 0);
+    cut(-ROOM_DEPTH, INNER, CEIL, CEIL + SLAB);
+    cut(-ROOM_DEPTH - 0.15, -ROOM_DEPTH, -SLAB, CEIL + SLAB);
+    g.add(this.section);
 
     // --- Cotes en millimètres ---
     this.addDimensions(cfg);
     this.applyClip();
     this.applyHidden();
+    this.applyViewDetails();
   }
 
   addDimensions(cfg) {
@@ -569,14 +575,28 @@ export class SolarScene {
   setPaths(paths, facadeAz) {
     disposeGroup(this.sunGroup);
     const c = this.center;
-    for (const p of paths) {
-      const pts = p.points
-        .filter((q) => q.altitude > -2)
-        .map((q) => {
-          const s = sunVectorLocal(q.altitude, q.azimuth, facadeAz);
-          return new THREE.Vector3(s.x, s.y, s.z).multiplyScalar(DOME).add(c);
+    const onDome = (alt, az) => {
+      const s = sunVectorLocal(alt, az, facadeAz);
+      return new THREE.Vector3(s.x, s.y, s.z).multiplyScalar(DOME).add(c);
+    };
+    paths.forEach((p, idx) => {
+      const pts = p.points.filter((q) => q.altitude > -2).map((q) => onDome(q.altitude, q.azimuth));
+      if (pts.length < 2) return;
+      // Heures sur la course du jour (points tous les 10 min depuis minuit)
+      if (idx === 0) {
+        const step = 1440 / (p.points.length - 1);
+        p.points.forEach((q, i) => {
+          const m = i * step;
+          if (q.altitude <= 1 || m % 120 !== 0) return;
+          const pos = onDome(q.altitude, q.azimuth);
+          const dot = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), new THREE.MeshBasicMaterial({ color: INK }));
+          dot.position.copy(pos);
+          this.sunGroup.add(dot);
+          const lab = textSprite(`${m / 60} h`, 600, 1.15, true);
+          lab.position.copy(pos).add(new THREE.Vector3(0, 0.26, 0));
+          this.sunGroup.add(lab);
         });
-      if (pts.length < 2) continue;
+      }
       const geo = new THREE.BufferGeometry().setFromPoints(pts);
       const mat = p.dashed
         ? new THREE.LineDashedMaterial({ color: GREY, dashSize: 0.1, gapSize: 0.1 })
@@ -584,44 +604,43 @@ export class SolarScene {
       const line = new THREE.Line(geo, mat);
       if (p.dashed) line.computeLineDistances();
       this.sunGroup.add(line);
-    }
-    // Horizon de la course solaire, en pointillé
+    });
+
+    // Cercle d'horizon de l'héliodon, gradué tous les 30°, avec les points cardinaux
     const ring = [];
-    for (let k = 0; k <= 96; k++) {
-      const a = (k / 96) * Math.PI * 2;
+    for (let k = 0; k <= 120; k++) {
+      const a = (k / 120) * Math.PI * 2;
       ring.push(new THREE.Vector3(c.x + Math.sin(a) * DOME, c.y, c.z + Math.cos(a) * DOME));
     }
-    const hor = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints(ring),
-      new THREE.LineDashedMaterial({ color: GREY, dashSize: 0.06, gapSize: 0.12 })
-    );
-    hor.computeLineDistances();
-    this.sunGroup.add(hor);
-    this.setNorth(facadeAz);
-  }
-
-  setNorth(facadeAz) {
-    if (this.northAz === facadeAz) return;
-    this.northAz = facadeAz;
-    disposeGroup(this.north);
-    const n = sunVectorLocal(0, 0, facadeAz);
-    const o = new THREE.Vector3(2.5, WALL_BOTTOM, 2.2);
-    const r = 0.38;
-    const circle = [];
-    for (let k = 0; k <= 48; k++) {
-      const a = (k / 48) * Math.PI * 2;
-      circle.push(new THREE.Vector3(o.x + Math.cos(a) * r, o.y, o.z + Math.sin(a) * r));
+    this.sunGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ring), lineMat()));
+    const ticks = [];
+    for (let az = 0; az < 360; az += 30) {
+      const s = sunVectorLocal(0, az, facadeAz);
+      const len = az % 90 === 0 ? 0.3 : 0.15;
+      ticks.push(
+        c.x + s.x * DOME, c.y, c.z + s.z * DOME,
+        c.x + s.x * (DOME + len), c.y, c.z + s.z * (DOME + len)
+      );
     }
-    this.north.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(circle), lineMat()));
-    const tip = o.clone().add(new THREE.Vector3(n.x, 0, n.z).multiplyScalar(r + 0.18));
-    const tail = o.clone().add(new THREE.Vector3(n.x, 0, n.z).multiplyScalar(-r));
-    const side = new THREE.Vector3(-n.z, 0, n.x).multiplyScalar(0.12);
-    const head = o.clone().add(new THREE.Vector3(n.x, 0, n.z).multiplyScalar(r - 0.12));
-    const pts = [tail, tip, tip, head.clone().add(side), tip, head.clone().sub(side)];
-    this.north.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), lineMat()));
-    const lab = textSprite('N', 900);
-    lab.position.copy(o.clone().add(new THREE.Vector3(n.x, 0, n.z).multiplyScalar(r + 0.42)));
-    this.north.add(lab);
+    this.sunGroup.add(segments(ticks, lineMat()));
+    for (const [t, az] of [['N', 0], ['E', 90], ['S', 180], ['O', 270]]) {
+      const s = sunVectorLocal(0, az, facadeAz);
+      const lab = textSprite(t, 900, 1.8, true);
+      lab.position.set(c.x + s.x * (DOME + 0.7), c.y, c.z + s.z * (DOME + 0.7));
+      this.sunGroup.add(lab);
+    }
+    // Méridien et hauteur du soleil à midi : un repère pour lire la course
+    const noon = paths[0]?.points.reduce((a, b) => (b.altitude > a.altitude ? b : a));
+    if (noon && noon.altitude > 0) {
+      const top = onDome(noon.altitude, noon.azimuth);
+      const foot = onDome(0, noon.azimuth);
+      const mer = segments([c.x, c.y, c.z, foot.x, foot.y, foot.z, foot.x, foot.y, foot.z, top.x, top.y, top.z], new THREE.LineDashedMaterial({ color: GREY, dashSize: 0.08, gapSize: 0.08 }));
+      mer.computeLineDistances();
+      this.sunGroup.add(mer);
+      const lab = textSprite(`${noon.altitude.toFixed(0)}° à midi`, 600, 1.3, true);
+      lab.position.copy(top).add(new THREE.Vector3(0, 0.55, 0));
+      this.sunGroup.add(lab);
+    }
   }
 }
 
@@ -661,22 +680,112 @@ function disposeGroup(group) {
   }
 }
 
-function textSprite(text, weight = 400) {
+function textSprite(text, weight = 400, scale = 1, depthTest = false) {
   const c = document.createElement('canvas');
-  c.width = 256;
+  c.width = 384;
   c.height = 96;
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#111110';
   ctx.font = `${weight} 60px Inter, system-ui, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, 128, 50);
+  // liseré blanc pour rester lisible sur les traits
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 14;
+  ctx.lineJoin = 'round';
+  ctx.strokeText(text, 192, 50);
+  ctx.fillText(text, 192, 50);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
-  sp.scale.set(0.56, 0.21, 1);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest, transparent: true }));
+  sp.scale.set(0.84 * scale, 0.21 * scale, 1);
   sp.renderOrder = 10;
   return sp;
+}
+
+// Calepinage de pierre de taille : assises de 50 cm, blocs de 1,10 m à joints
+// alternés, et quelques hachures fines le long des joints, comme au trait.
+// La texture couvre 2,2 m × 1 m (deux assises), répétée en coordonnées métriques.
+function ashlarTexture() {
+  const PX = 400; // pixels par mètre
+  const tw = 2.2;
+  const th = 1.0;
+  const c = document.createElement('canvas');
+  c.width = Math.round(tw * PX);
+  c.height = Math.round(th * PX);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, c.width, c.height);
+  const course = 0.5 * PX;
+  const block = 1.1 * PX;
+  ctx.strokeStyle = '#55544f';
+  ctx.lineWidth = 3;
+  // joints d'assise
+  for (let y = 0; y <= c.height; y += course) {
+    ctx.beginPath();
+    ctx.moveTo(0, y + 1);
+    ctx.lineTo(c.width, y + 1);
+    ctx.stroke();
+  }
+  // joints montants, décalés d'un demi-bloc d'une assise à l'autre
+  for (let r = 0; r < 2; r++) {
+    const off = r % 2 ? block / 2 : 0;
+    for (let x = off; x <= c.width + 1; x += block) {
+      ctx.beginPath();
+      ctx.moveTo(x + 1, r * course);
+      ctx.lineTo(x + 1, (r + 1) * course);
+      ctx.stroke();
+    }
+  }
+  // hachures : traits diagonaux courts sous le joint haut et contre le joint gauche de chaque bloc
+  ctx.strokeStyle = '#8f8e89';
+  ctx.lineWidth = 2;
+  for (let r = 0; r < 2; r++) {
+    const off = r % 2 ? block / 2 : 0;
+    for (let x = off - block; x < c.width; x += block) {
+      const y = r * course;
+      for (let k = 0; k < 7; k++) {
+        const sx = x + 12 + k * 13;
+        ctx.beginPath();
+        ctx.moveTo(sx, y + 8);
+        ctx.lineTo(sx - 18, y + 26 + (k % 2) * 6);
+        ctx.stroke();
+      }
+      for (let k = 0; k < 4; k++) {
+        const sy = y + 40 + k * 14;
+        ctx.beginPath();
+        ctx.moveTo(x + 8, sy);
+        ctx.lineTo(x + 22, sy - 14);
+        ctx.stroke();
+      }
+    }
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(1 / tw, 1 / th);
+  return tex;
+}
+
+// Hachure à 45° des parties coupées
+function hatchTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, 128, 128);
+  ctx.strokeStyle = '#111110';
+  ctx.lineWidth = 2;
+  for (let k = -128; k <= 128; k += 21.33) {
+    ctx.beginPath();
+    ctx.moveTo(k, 128);
+    ctx.lineTo(k + 128, 0);
+    ctx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
 }
 
 function sunSprite() {
@@ -701,7 +810,7 @@ function sunSprite() {
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
-  sp.scale.set(0.55, 0.55, 1);
+  sp.scale.set(0.8, 0.8, 1);
   sp.renderOrder = 11;
   return sp;
 }
