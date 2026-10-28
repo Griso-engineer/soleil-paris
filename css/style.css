@@ -201,7 +201,7 @@ input[type="range"]:focus-visible { outline: 2px solid var(--c-coral); outline-o
 /* Vue 3D */
 .viewer {
   position: relative; height: min(60vh, 600px); min-height: 320px; overflow: hidden;
-  background: #eef3f8;
+  background: #ffffff; border: 1px solid var(--line);
 }
 .viewer canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .seg-float { position: absolute; top: 14px; left: 14px; z-index: 2; background: var(--paper); }

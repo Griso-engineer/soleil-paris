@@ -84,9 +84,10 @@ const PERSIENNE = { w: 0.05, s: 0.04, beta: 45 };
 export function defaultConfig() {
   return {
     facadeAz: 180, // azimut de la normale sortante (180 = sud)
-    W: 1.4,
-    H: 1.6,
-    e: 0.2,
+    // porte-fenêtre parisienne type, dans un mur de pierre épais
+    W: 1.2,
+    H: 2.15,
+    e: 0.3,
     glazing: 'doubleFE',
     type: 'bso',
     deploy: 1, // fraction déployée (0 → 1)
