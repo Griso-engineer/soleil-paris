@@ -34,6 +34,8 @@ ou `npx serve` font la même chose.
 | `js/charts.js` | Graphiques SVG : courbe du jour, bilan mensuel, diagramme solaire, comparatif |
 | `js/main.js` | État, contrôles, enchaînement des calculs, lien partageable (URL) |
 | `js/report.js` | Fiche PDF d'une protection (2 pages A4, via l'impression du navigateur) |
+| `rue.html`, `js/rue.js` | Onglet « Masque urbain » : coupe de rue, ombre de l'immeuble d'en face, étage par étage |
+| `js/street.js` | Modèle 2D de la rue : angle de profil, ombre portée, angle d'obstruction, ciel visible |
 
 Fiche PDF : bouton « Exporter la fiche PDF », puis « Enregistrer au format PDF »
 dans la boîte d'impression. Alt + clic, ou une adresse se terminant par `#fiche`,

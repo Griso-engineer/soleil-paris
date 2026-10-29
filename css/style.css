@@ -596,3 +596,59 @@ html.printing {
   font-weight: 700; color: var(--ink); font-size: 10.5px; text-align: center;
 }
 @media (max-width: 680px) { .mask-scale { display: none !important; } .viewer-right { width: auto; } }
+
+/* ---------- Onglets entre les outils ---------- */
+.tabs { display: flex; gap: 28px; padding: 18px var(--pad) 0; }
+.tabs a {
+  text-decoration: none; font-weight: 800; font-size: clamp(16px, 1.6vw, 20px); letter-spacing: -0.02em;
+  color: var(--faint); padding-bottom: 6px; border-bottom: 2px solid transparent;
+}
+.tabs a:hover { color: var(--ink); }
+.tabs a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--ink); }
+.hero-compact { padding-top: clamp(48px, 9vh, 110px); }
+
+/* ---------- Coupe de rue ---------- */
+.street-view { display: flex; align-items: center; justify-content: center; background: #fff; }
+.street-svg { width: 100%; height: 100%; display: block; font-family: var(--font); }
+.st-line { stroke: var(--ink); stroke-width: 1.5; }
+.st-ground { stroke: none; }
+.st-hatch-line { stroke: var(--ink); stroke-width: 1; }
+.st-building { fill: var(--paper); stroke: var(--ink); stroke-width: 1.5; }
+.st-floor { stroke: var(--faint); stroke-width: 1; }
+.st-label { fill: var(--muted); font-size: 12px; font-weight: 500; }
+.st-shade { fill: rgba(17, 17, 16, 0.16); }
+.st-win { fill: var(--paper); stroke: var(--ink); stroke-width: 1; }
+.st-win-cur { stroke-width: 2; }
+.st-win-lit { fill: var(--c-sun); stroke: none; }
+.st-guide { stroke: var(--faint); stroke-width: 1; stroke-dasharray: 3 4; }
+.st-obst { stroke: var(--c-coral); stroke-width: 1.5; }
+.st-arc { fill: none; stroke: var(--c-coral); stroke-width: 1.5; }
+.st-angle { fill: var(--ink); font-size: 14px; font-weight: 800; }
+.st-ray { stroke: var(--ink); stroke-width: 1.2; stroke-dasharray: 7 5; }
+.st-ray-lit { stroke: var(--sun); stroke-width: 2; stroke-dasharray: none; }
+.st-sun circle { fill: var(--c-sun); stroke: var(--ink); stroke-width: 1.5; }
+.st-sun line { stroke: var(--ink); stroke-width: 1.5; }
+.st-cote { stroke: var(--ink); stroke-width: 1; }
+.st-tick { stroke: var(--ink); stroke-width: 1.5; }
+.st-cote-text { fill: var(--ink); font-size: 12.5px; font-weight: 600; }
+.st-note { fill: var(--muted); font-size: 12.5px; }
+
+/* ---------- Étage par étage ---------- */
+.floors { display: flex; flex-direction: column; }
+.floor-row {
+  display: grid; grid-template-columns: 44px minmax(0, 1fr) 64px 44px; gap: 10px; align-items: center;
+  border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: 5px 0; text-align: left; cursor: pointer;
+  font-size: 13px; font-variant-numeric: tabular-nums;
+}
+.floor-row:hover { background: var(--paper-2); }
+.floor-row.is-current { background: var(--c-sun); }
+.floor-head { cursor: default; font-size: 11px; color: var(--muted); border-bottom: 0; padding-top: 6px; }
+.floor-head:hover { background: transparent; }
+.floor-name { font-weight: 800; padding-left: 4px; }
+.floor-bar { position: relative; height: 12px; }
+.floor-bar i { position: absolute; left: 0; top: 0; bottom: 0; display: block; }
+.floor-bar .fb-0 { background: var(--series-2); }
+.floor-bar .fb-1 { background: var(--series-1); }
+.floor-h { text-align: right; font-weight: 600; }
+.floor-sky { text-align: right; color: var(--muted); }
+.street-view { height: auto; min-height: 0; aspect-ratio: 900 / 540; }

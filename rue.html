@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Masque urbain — Paris · Tracés</title>
+  <meta name="description" content="Simulateur pédagogique Tracés : le masque solaire de l'immeuble d'en face dans une rue parisienne, selon la largeur de la rue, la hauteur des immeubles et l'étage.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23FA554F'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23fff'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <script>document.documentElement.classList.add('js');</script>
+</head>
+<body>
+  <div class="rail" aria-hidden="true">
+    <span>Simulateur Tracés — Masque urbain</span>
+    <b>tracés</b>
+    <span>Paris 48,86° N</span>
+  </div>
+
+  <header class="top">
+    <nav class="top-nav" aria-label="Sections">
+      <a href="#simulateur">Simulateur</a>
+      <a href="#comprendre">Comprendre</a>
+      <a href="#methode">Méthode</a>
+    </nav>
+    <a class="logo" href="index.html" aria-label="Tracés, accueil du simulateur">tracés</a>
+  </header>
+
+  <nav class="tabs" aria-label="Outils">
+    <a href="index.html">Protections solaires</a>
+    <a href="rue.html" aria-current="page">Masque urbain</a>
+  </nav>
+
+  <!-- ================= Couverture ================= -->
+  <section class="hero hero-compact">
+    <div class="hero-meta reveal">
+      <span>Outil pédagogique</span><i aria-hidden="true">•</i><span>Paris, 48,86° N</span>
+    </div>
+    <h1 class="hero-title reveal">Rue &amp;<br>soleil</h1>
+    <p class="hero-lede reveal">L'immeuble d'en face est souvent la première protection solaire d'une fenêtre parisienne, et la plus grande voleuse de lumière. Mesurez son effet selon la largeur de la rue, les hauteurs et l'étage.</p>
+  </section>
+
+  <!-- ================= Simulateur ================= -->
+  <section id="simulateur" class="block">
+    <header class="block-head reveal">
+      <span class="num">01</span>
+      <h2>Simulateur</h2>
+      <p>Réglez la rue et l'étage, puis faites défiler les heures et les saisons : l'ombre de l'immeuble d'en face monte et descend sur la façade.</p>
+    </header>
+
+    <div class="app">
+      <aside class="panel" aria-label="Paramètres">
+        <section class="group">
+          <h3><span class="step">A</span> Orientation de la façade</h3>
+          <div class="orient">
+            <div class="rose" id="rose" role="radiogroup" aria-label="Orientation"></div>
+            <div class="field">
+              <label for="facadeAz">Azimut de la normale <output id="facadeAzOut"></output></label>
+              <input type="range" id="facadeAz" min="0" max="355" step="5">
+              <p class="hint">Direction vers laquelle regarde la fenêtre, donc vers l'immeuble d'en face. 180° = plein sud.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="group">
+          <h3><span class="step">B</span> Rue et immeubles</h3>
+          <div class="field">
+            <label for="width">Largeur de la rue <output id="widthOut"></output></label>
+            <input type="range" id="width" min="4" max="40" step="0.5">
+            <p class="hint">De façade à façade, trottoirs compris. Rue de quartier : 10 à 15 m ; boulevard haussmannien : 30 m et plus.</p>
+          </div>
+          <div class="field">
+            <label for="hOpp">Hauteur de l'immeuble d'en face <output id="hOppOut"></output></label>
+            <input type="range" id="hOpp" min="0" max="40" step="0.5">
+            <p class="hint">Immeuble haussmannien : 18 à 20 m à l'égout du toit.</p>
+          </div>
+          <div class="field">
+            <label for="hOwn">Hauteur de notre immeuble <output id="hOwnOut"></output></label>
+            <input type="range" id="hOwn" min="3" max="40" step="0.5">
+          </div>
+          <div class="presets" id="streetPresets">
+            <button type="button" data-w="8" data-h="18">Rue étroite</button>
+            <button type="button" data-w="12" data-h="18">Rue de quartier</button>
+            <button type="button" data-w="30" data-h="20">Boulevard</button>
+            <button type="button" data-w="12" data-h="0">Dégagé</button>
+          </div>
+        </section>
+
+        <section class="group">
+          <h3><span class="step">C</span> Étage observé</h3>
+          <div class="field">
+            <label for="floor">Étage <output id="floorOut"></output></label>
+            <input type="range" id="floor" min="0" max="12" step="1">
+            <p class="hint">Étages de 3 m. La fenêtre étudiée est une porte-fenêtre de 2,20 m de haut.</p>
+          </div>
+        </section>
+      </aside>
+
+      <section class="stage">
+        <div class="viewer street-view" id="streetView" aria-label="Coupe de la rue"></div>
+        <div class="timebar">
+          <div class="time-row">
+            <button type="button" class="play" id="play" aria-label="Animer la journée">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico-play" d="M8 5v14l11-7z"/><path class="ico-pause" d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+            </button>
+            <div class="field grow">
+              <label for="hour">Heure légale <output id="hourOut" class="big"></output></label>
+              <input type="range" id="hour" min="0" max="24" step="0.0833333">
+            </div>
+          </div>
+          <div class="time-row">
+            <div class="field grow">
+              <label for="doy">Date <output id="doyOut" class="big"></output></label>
+              <input type="range" id="doy" min="1" max="365" step="1">
+            </div>
+            <div class="presets" id="presets">
+              <button type="button" data-doy="355">Hiver</button>
+              <button type="button" data-doy="80">Équinoxe</button>
+              <button type="button" data-doy="172">Été</button>
+              <button type="button" data-doy="227">Canicule d'août</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="results" aria-label="Résultats">
+        <section class="kpi-block">
+          <h3>À l'instant sélectionné <span id="kpiNowLabel"></span></h3>
+          <div class="kpis" id="kpisNow"></div>
+        </section>
+        <section class="kpi-block">
+          <h3>Sur la journée entière <span id="kpiDayLabel"></span></h3>
+          <div class="kpis" id="kpisDay"></div>
+        </section>
+
+        <article class="card">
+          <header class="card-head">
+            <div>
+              <h3>Course du soleil et masque urbain</h3>
+              <p class="sub">Vue du ciel, nord en haut. Couleur : part de la fenêtre atteinte par le soleil direct, compte tenu de l'immeuble d'en face.</p>
+            </div>
+          </header>
+          <div class="chart sunpath" id="sunPath"></div>
+          <div id="maskLegend"></div>
+        </article>
+
+        <article class="card">
+          <header class="card-head">
+            <div>
+              <h3>Étage par étage</h3>
+              <p class="sub" id="floorsSub"></p>
+            </div>
+          </header>
+          <div id="floors"></div>
+        </article>
+
+        <article class="card span-2">
+          <header class="card-head">
+            <div>
+              <h3>Au fil de l'année</h3>
+              <p class="sub">Heures de soleil direct sur la fenêtre par jour de ciel clair, le 21 de chaque mois.</p>
+            </div>
+            <div class="legend">
+              <span><i class="sw sw-2"></i>Façade dégagée</span>
+              <span><i class="sw sw-1"></i>Avec l'immeuble d'en face</span>
+            </div>
+          </header>
+          <div class="chart" id="monthChart"></div>
+        </article>
+
+        <article class="card span-2">
+          <header class="card-head">
+            <div>
+              <h3>À retenir</h3>
+              <p class="sub" id="insightSub"></p>
+            </div>
+          </header>
+          <div class="insights" id="insights"></div>
+        </article>
+      </section>
+    </div>
+  </section>
+
+  <!-- ================= Comprendre ================= -->
+  <section id="comprendre" class="block">
+    <header class="block-head reveal">
+      <span class="num">02</span>
+      <h2>Comprendre</h2>
+      <p>Trois idées pour lire une rue comme un masque solaire.</p>
+    </header>
+    <ol class="story">
+      <li class="story-item">
+        <span class="story-num">1</span>
+        <div class="story-text reveal">
+          <h3>L'angle d'obstruction</h3>
+          <p>Depuis la fenêtre, on trace la ligne qui passe par le haut de l'immeuble d'en face. Son angle au-dessus de l'horizontale est l'angle d'obstruction. Le soleil ne touche la fenêtre que s'il passe au-dessus, vu dans la coupe de la rue.</p>
+        </div>
+        <figure class="story-fig reveal" style="--fig: var(--c-sun)">
+          <svg viewBox="0 0 400 260" aria-hidden="true" class="fig-svg">
+            <line x1="40" y1="220" x2="360" y2="220" />
+            <rect x="60" y="60" width="60" height="160" />
+            <rect x="270" y="90" width="70" height="130" />
+            <line x1="120" y1="160" x2="270" y2="90" stroke-dasharray="6 6" />
+            <line x1="120" y1="160" x2="240" y2="160" />
+            <path d="M175 160 A55 55 0 0 0 170 135" />
+            <circle cx="120" cy="160" r="5" class="dot" />
+          </svg>
+          <div class="fig-stat"><b>45°</b><span>quand la rue est aussi large que l'immeuble est haut</span></div>
+          <figcaption><b>Angle d'obstruction</b> vu du milieu de la fenêtre.</figcaption>
+        </figure>
+      </li>
+      <li class="story-item">
+        <span class="story-num">2</span>
+        <div class="story-text reveal">
+          <h3>Le soleil d'hiver se perd dans la rue</h3>
+          <p>À Paris, le soleil ne dépasse pas 18° à midi le 21 décembre. Dès que l'angle d'obstruction est plus fort, la fenêtre ne voit plus jamais le soleil direct en hiver, et les étages bas d'une rue étroite restent à l'ombre des mois durant.</p>
+        </div>
+        <figure class="story-fig reveal" style="--fig: var(--c-blue)">
+          <div class="fig-stat hero"><b>17,7°</b><span>hauteur du soleil à midi, le 21 décembre</span></div>
+          <figcaption><b>En hiver</b>, le masque urbain prive la façade d'apports gratuits.</figcaption>
+        </figure>
+      </li>
+      <li class="story-item">
+        <span class="story-num">3</span>
+        <div class="story-text reveal">
+          <h3>En été, l'immeuble d'en face protège</h3>
+          <p>Le soleil d'été est haut au sud et passe au-dessus des toits : le masque urbain y change peu de chose. À l'est et à l'ouest, le soleil arrive bas, presque dans l'axe de la coupe : l'immeuble d'en face coupe alors une bonne part du rayonnement du matin ou du soir.</p>
+        </div>
+        <figure class="story-fig reveal" style="--fig: var(--c-orange)">
+          <div class="fig-stat hero"><b>Ouest</b><span>là où le vis-à-vis rafraîchit le plus</span></div>
+          <figcaption><b>Un masque à double tranchant</b>, selon la saison et l'orientation.</figcaption>
+        </figure>
+      </li>
+    </ol>
+  </section>
+
+  <!-- ================= Méthode ================= -->
+  <section id="methode" class="block">
+    <header class="block-head reveal">
+      <span class="num">03</span>
+      <h2>Méthode et limites</h2>
+      <p>Une coupe 2D, pour des ordres de grandeur.</p>
+    </header>
+    <dl class="facts">
+      <div class="reveal"><dt>Géométrie</dt><dd>Rue rectiligne et infinie, bordée de deux immeubles parallèles de hauteur constante. Le soleil est projeté dans la coupe de la rue (angle de profil) ; l'ombre portée monte sur la façade jusqu'à H − L·tan φ.</dd></div>
+      <div class="reveal"><dt>Soleil et rayonnement</dt><dd>Position du soleil NOAA, heure légale de Paris ; ciel clair ASHRAE. Une heure « de soleil » compte quand au moins la moitié de la fenêtre est au soleil direct.</dd></div>
+      <div class="reveal"><dt>Ciel visible</dt><dd>Part de la voûte céleste vue par une fenêtre verticale au-dessus de l'immeuble d'en face, rapportée à une façade dégagée : 1 − sin α. Le rayonnement diffus du ciel est réduit dans la même proportion.</dd></div>
+      <div class="reveal"><dt>Hors modèle</dt><dd>Réflexions sur la façade d'en face et sur la chaussée (supposées identiques avec et sans masque), toitures et lucarnes, carrefours et extrémités de rue, arbres, balcons. Pour un projet, un modèle 3D du site reste nécessaire.</dd></div>
+    </dl>
+  </section>
+
+  <footer class="foot">
+    <div class="foot-top">
+      <div class="foot-logo">tracés</div>
+      <address class="foot-contact">
+        <b>Contact</b>
+        <a href="mailto:l.grisoni@traces.design">l.grisoni@traces.design</a>
+        <a href="tel:+33698573658">+33 (0)6 98 57 36 58</a>
+        <span>18 rue Raymond Aron, 75013 Paris</span>
+      </address>
+    </div>
+    <div class="foot-cols">
+      <div><b>Masque urbain</b><span>Simulateur pédagogique</span></div>
+      <div><b>Paris</b><span>48,86° N · 2,35° E</span></div>
+      <div><b>Code source</b><a href="https://github.com/Griso-engineer/soleil-paris">github.com/Griso-engineer/soleil-paris</a></div>
+    </div>
+  </footer>
+
+  <script type="module" src="js/reveal.js"></script>
+  <script type="module" src="js/rue.js"></script>
+</body>
+</html>

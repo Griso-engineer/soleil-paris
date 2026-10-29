@@ -352,21 +352,24 @@ export function renderDayChart(container, { without, withP, hour, area, onPick }
 // Bilan mensuel (barres groupées)
 // ---------------------------------------------------------------------------
 
-export function renderMonthChart(container, { data, currentMonth }) {
+export function renderMonthChart(container, {
+  data, currentMonth, unit = 'kWh', axisLabel = 'kWh / jour', labels = ['Sans protection', 'Avec protection'], yMax = null,
+  note = (d) => `Soleil au midi : ${fmt(d.noonAlt, 0)}° de hauteur`,
+}) {
   const W = 640;
   const H = 240;
   const m = { l: 44, r: 12, t: 18, b: 28 };
   const iw = W - m.l - m.r;
   const ih = H - m.t - m.b;
   const svg = svgRoot(container, W, H, 'Énergie solaire entrant par jour de ciel clair, mois par mois');
-  const ymax = niceMax(Math.max(0.5, ...data.map((d) => d.without)) * 1.05);
+  const ymax = yMax ?? niceMax(Math.max(0.5, ...data.map((d) => d.without)) * 1.05);
   const y = (v) => m.t + ih - (v / ymax) * ih;
   for (let k = 0; k <= 4; k++) {
     const v = (ymax * k) / 4;
     el('line', { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), class: k === 0 ? 'axis' : 'grid' }, svg);
     el('text', { x: m.l - 6, y: y(v) + 4, 'text-anchor': 'end', class: 'tick' }, svg).textContent = fmt(v, v < 10 && ymax < 10 ? 1 : 0);
   }
-  el('text', { x: m.l, y: m.t - 6, class: 'tick' }, svg).textContent = 'kWh / jour';
+  el('text', { x: m.l, y: m.t - 6, class: 'tick' }, svg).textContent = axisLabel;
   const band = iw / 12;
   const bw = Math.min(18, (band - 10) / 2);
   data.forEach((d, i) => {
@@ -393,9 +396,9 @@ export function renderMonthChart(container, { data, currentMonth }) {
     const hit = el('rect', { x: cx - band / 2, y: m.t, width: band, height: ih, fill: 'transparent' }, svg);
     hit.addEventListener('mousemove', (evt) => showTip(
       `<strong>21 ${MONTHS[i].replace('.', '')}</strong>
-       <div class="tip-row"><span class="sw sw-2"></span>Sans protection<b>${fmt(d.without, 1)} kWh</b></div>
-       <div class="tip-row"><span class="sw sw-1"></span>Avec protection<b>${fmt(d.withP, 1)} kWh</b></div>
-       <div class="tip-note">Soleil au midi : ${fmt(d.noonAlt, 0)}° de hauteur</div>`,
+       <div class="tip-row"><span class="sw sw-2"></span>${labels[0]}<b>${fmt(d.without, 1)} ${unit}</b></div>
+       <div class="tip-row"><span class="sw sw-1"></span>${labels[1]}<b>${fmt(d.withP, 1)} ${unit}</b></div>
+       <div class="tip-note">${note(d)}</div>`,
       evt
     ));
     hit.addEventListener('mouseleave', hideTip);
