@@ -5,7 +5,7 @@ import {
 import { SolarScene } from './scene3d.js';
 import { exportReport } from './report.js';
 import {
-  renderSunPath, renderDayChart, renderLiveDay, maskLegendHTML, renderMonthChart, renderComparison, fmtHour, fmt, MONTHS,
+  renderSunPath, renderDayChart, renderLiveDay, maskLegendHTML, maskGradient, renderMonthChart, renderComparison, fmtHour, fmt, MONTHS,
 } from './charts.js';
 
 const YEAR = new Date().getFullYear();
@@ -444,8 +444,7 @@ $('liveToggle').addEventListener('click', () => {
 applyLive();
 
 // Sphère de masque solaire sur la vue 3D (affichable / masquable, choix mémorisé)
-let maskOn = false; // désactivée par défaut : le dessin au trait reste lisible
-try { maskOn = localStorage.getItem('mask3d') === 'on'; } catch { /* stockage indisponible */ }
+let maskOn = false; // toujours désactivée à l'arrivée sur la page : le dessin au trait reste lisible
 function applyMaskToggle() {
   $('maskToggle').setAttribute('aria-pressed', String(maskOn));
   $('maskLegend3d').hidden = !(maskOn && state.view !== 'int');
@@ -453,12 +452,11 @@ function applyMaskToggle() {
 }
 $('maskToggle').addEventListener('click', () => {
   maskOn = !maskOn;
-  try { localStorage.setItem('mask3d', maskOn ? 'on' : 'off'); } catch { /* stockage indisponible */ }
   applyMaskToggle();
 });
 applyMaskToggle();
 $('maskLegend').innerHTML = maskLegendHTML();
-$('maskLegend3dBody').innerHTML = maskLegendHTML();
+$('maskScaleBar').style.background = maskGradient('0deg');
 
 let lastSunPath = 0;
 function updateInstant(force = false) {

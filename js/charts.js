@@ -87,11 +87,16 @@ function maskCells(mask, proj) {
   return s;
 }
 
-/** Légende du masque solaire (barre de dégradé 0 → 100 %). */
-export function maskLegendHTML() {
+/** Dégradé CSS du masque solaire, dans la direction donnée (90deg : de gauche à droite). */
+export function maskGradient(dir = '90deg') {
   const stops = [0, 0.2, 0.4, 0.5, 0.65, 0.8, 1]
     .map((v) => `rgb(${maskColor(v).join(',')}) ${v * 100}%`).join(', ');
-  return `<div class="mask-legend"><span>0 %</span><i style="background:linear-gradient(90deg, ${stops})"></i><span>100 %</span></div>
+  return `linear-gradient(${dir}, ${stops})`;
+}
+
+/** Légende du masque solaire (barre de dégradé 0 → 100 %). */
+export function maskLegendHTML() {
+  return `<div class="mask-legend"><span>0 %</span><i style="background:${maskGradient()}"></i><span>100 %</span></div>
     <p class="mask-caption">Part du vitrage au soleil si le soleil se trouvait dans cette direction du ciel.</p>`;
 }
 
