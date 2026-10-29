@@ -187,7 +187,10 @@
               <div class="live-card"><div class="live-title">Course du soleil</div><div id="liveSun"></div></div>
             </div>
           </div>
-          <button type="button" class="live-toggle" id="liveToggle" aria-pressed="true">Graphes en direct</button>
+          <div class="viewer-toggles">
+            <button type="button" class="live-toggle" id="maskToggle" aria-pressed="false">Masque solaire</button>
+            <button type="button" class="live-toggle" id="liveToggle" aria-pressed="true">Graphes en direct</button>
+          </div>
           <div class="viewer-hint">Glisser pour tourner · Ctrl + molette pour zoomer</div>
         </div>
 
@@ -249,11 +252,12 @@
         <article class="card">
           <header class="card-head">
             <div>
-              <h3>Course du soleil</h3>
-              <p class="sub">Vue du ciel, nord en haut. Zone grisée : soleil derrière la façade.</p>
+              <h3>Course du soleil et masque solaire</h3>
+              <p class="sub">Vue du ciel, nord en haut. Couleur : part du vitrage atteinte par le soleil direct avec la protection choisie.</p>
             </div>
           </header>
           <div class="chart sunpath" id="sunPath"></div>
+          <div id="maskLegend"></div>
           <div class="sun-facts" id="sunFacts"></div>
         </article>
 

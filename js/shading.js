@@ -231,6 +231,13 @@ export function buildGeometry(cfg) {
       });
       break;
     }
+    case 'custom': {
+      // Obstacles libres (rectangles opaques), pour les études paramétriques et les tests
+      for (const q of cfg.quads || []) {
+        geo.quads.push({ ...q, n: normalize(cross(q.u, q.v)), near: 0, mat: () => opaque(rhoC) });
+      }
+      break;
+    }
     default:
       break;
   }
@@ -456,7 +463,61 @@ export function makeModel(cfg, gridN = 12) {
     return { gain: g / pts.length, light: l / pts.length, sunlit: lit / pts.length };
   }
 
-  return { cfg, geo, glz, diffuse, direct };
+  /**
+   * Masque solaire : part du vitrage atteinte par le rayonnement direct si le soleil
+   * se trouvait dans la direction s (repère façade). Transmission géométrique seule,
+   * sans le facteur d'incidence du verre : 1 = tout le vitrage au soleil, 0 = masqué.
+   */
+  function mask(s) {
+    if (s.z <= 1e-3) return 0;
+    const k = iam(s.z);
+    if (k <= 0) return 0;
+    let l = 0;
+    for (const p of pts) l += trace(p, s, geo, glz).light;
+    return Math.min(1, l / (pts.length * glz.tv * k));
+  }
+
+  return { cfg, geo, glz, diffuse, direct, mask };
+}
+
+/**
+ * Grille du masque solaire sur la voûte céleste, en coordonnées absolues :
+ * values[i][j] pour la hauteur i·step et l'azimut j·step (0 = nord, sens horaire).
+ * Avec `centers`, les valeurs sont prises au centre des cases (dessin en 2D).
+ */
+export function maskGrid(model, step = 5, centers = false) {
+  const off = centers ? step / 2 : 0;
+  const nAlt = Math.round(90 / step) + (centers ? 0 : 1);
+  const nAz = Math.round(360 / step) + (centers ? 0 : 1);
+  const values = [];
+  for (let i = 0; i < nAlt; i++) {
+    const alt = Math.min(89.9, i * step + off);
+    const row = [];
+    for (let j = 0; j < nAz; j++) {
+      row.push(model.mask(sunVectorLocal(alt, j * step + off, model.cfg.facadeAz)));
+    }
+    values.push(row);
+  }
+  return { step, centers, values };
+}
+
+// Rampe du masque, du bleu nuit (masqué) au rose (tout le vitrage au soleil),
+// dans l'esprit des sphères de masque Ladybug.
+const MASK_RAMP = [
+  [0, [47, 54, 80]], [0.2, [111, 130, 179]], [0.4, [185, 214, 240]],
+  [0.5, [255, 243, 176]], [0.65, [255, 208, 90]], [0.8, [247, 147, 76]], [1, [232, 51, 90]],
+];
+export function maskColor(v) {
+  const x = Math.max(0, Math.min(1, v));
+  for (let k = 1; k < MASK_RAMP.length; k++) {
+    const [x1, c1] = MASK_RAMP[k];
+    if (x <= x1) {
+      const [x0, c0] = MASK_RAMP[k - 1];
+      const t = (x - x0) / (x1 - x0);
+      return c0.map((c, i) => Math.round(c + (c1[i] - c) * t));
+    }
+  }
+  return MASK_RAMP[MASK_RAMP.length - 1][1];
 }
 
 /**

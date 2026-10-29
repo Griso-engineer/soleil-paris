@@ -1,6 +1,7 @@
 // Graphiques SVG : diagramme solaire, profil journalier, bilan mensuel, comparatif.
 
 import { sunPosition, parisLocalToUTC } from './solar.js';
+import { maskColor } from './shading.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
@@ -65,7 +66,36 @@ function hideTip() {
 // Diagramme solaire (projection polaire équidistante, nord en haut)
 // ---------------------------------------------------------------------------
 
-export function renderSunPath(container, { year, doy, hour, sun, facadeAz }) {
+// Cases du masque, mises en cache par grille (le diagramme est redessiné à chaque heure)
+const maskCache = new WeakMap();
+function maskCells(mask, proj) {
+  if (maskCache.has(mask)) return maskCache.get(mask);
+  const { step, values } = mask;
+  let s = '';
+  values.forEach((row, i) => {
+    const a0 = i * step;
+    const a1 = Math.min(90, a0 + step);
+    row.forEach((v, j) => {
+      const z0 = j * step;
+      const z1 = z0 + step + 0.4; // léger recouvrement pour éviter les liserés
+      const p = [proj(a0, z0), proj(a0, z1), proj(a1, z1), proj(a1, z0)];
+      const [r, g, b] = maskColor(v);
+      s += `<path d="M${p.map((q) => `${q[0].toFixed(1)},${q[1].toFixed(1)}`).join('L')}Z" fill="rgb(${r},${g},${b})"/>`;
+    });
+  });
+  maskCache.set(mask, s);
+  return s;
+}
+
+/** Légende du masque solaire (barre de dégradé 0 → 100 %). */
+export function maskLegendHTML() {
+  const stops = [0, 0.2, 0.4, 0.5, 0.65, 0.8, 1]
+    .map((v) => `rgb(${maskColor(v).join(',')}) ${v * 100}%`).join(', ');
+  return `<div class="mask-legend"><span>0 %</span><i style="background:linear-gradient(90deg, ${stops})"></i><span>100 %</span></div>
+    <p class="mask-caption">Part du vitrage au soleil si le soleil se trouvait dans cette direction du ciel.</p>`;
+}
+
+export function renderSunPath(container, { year, doy, hour, sun, facadeAz, mask = null }) {
   const S = 340;
   const c = S / 2;
   const R = 140;
@@ -76,16 +106,22 @@ export function renderSunPath(container, { year, doy, hour, sun, facadeAz }) {
     return [c + r * Math.sin(a), c - r * Math.cos(a)];
   };
 
-  // Demi-ciel situé derrière la façade
-  const back = [];
-  for (let k = 0; k <= 36; k++) {
-    const az = facadeAz + 90 + (k / 36) * 180;
-    back.push(proj(0, az));
+  if (mask) {
+    // Masque solaire : chaque case de ciel colorée selon la part du vitrage au soleil
+    const g = el('g', { class: 'sp-mask' }, svg);
+    g.innerHTML = maskCells(mask, proj);
+  } else {
+    // Demi-ciel situé derrière la façade
+    const back = [];
+    for (let k = 0; k <= 36; k++) {
+      const az = facadeAz + 90 + (k / 36) * 180;
+      back.push(proj(0, az));
+    }
+    el('path', {
+      d: `M${c},${c} L${back.map((p) => p.join(',')).join(' L')} Z`,
+      class: 'sp-back',
+    }, svg);
   }
-  el('path', {
-    d: `M${c},${c} L${back.map((p) => p.join(',')).join(' L')} Z`,
-    class: 'sp-back',
-  }, svg);
 
   el('circle', { cx: c, cy: c, r: R, class: 'sp-ring sp-horizon' }, svg);
   for (const alt of [30, 60]) {

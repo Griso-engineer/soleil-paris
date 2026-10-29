@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { sunVectorLocal, foldingLeaves } from './shading.js';
+import { sunVectorLocal, foldingLeaves, maskColor } from './shading.js';
 
 const WALL_HALF = 3.2;
 const ROOM_HALF = 2.2;
@@ -90,7 +90,8 @@ export class SolarScene {
     this.building = new THREE.Group();
     this.prot = new THREE.Group();
     this.sunGroup = new THREE.Group();
-    this.scene.add(this.building, this.prot, this.sunGroup);
+    this.maskDome = new THREE.Group();
+    this.scene.add(this.building, this.prot, this.sunGroup, this.maskDome);
     this.hidden = { int: [], coupe: [] };
 
     this.view = 'ext';
@@ -128,6 +129,7 @@ export class SolarScene {
       size: this.renderer.getSize(new THREE.Vector2()), ratio: this.renderer.getPixelRatio(),
     };
     this.renderer.setPixelRatio(1);
+    this.viewShift = 0;
     this.renderer.setSize(width, height, false);
     this.aspect = width / height;
     this.setView(view);
@@ -138,6 +140,7 @@ export class SolarScene {
     const url = this.renderer.domElement.toDataURL('image/png');
     // restauration
     this.renderer.setPixelRatio(saved.ratio);
+    this.viewShift = undefined;
     this.renderer.setSize(saved.size.x, saved.size.y, false);
     this.aspect = saved.aspect;
     this.setView(saved.view);
@@ -153,8 +156,11 @@ export class SolarScene {
   updateFrustum() {
     const half = this.viewHalf || 3.2;
     const a = this.aspect || 1.6;
-    this.camera.left = -half * a;
-    this.camera.right = half * a;
+    // Décalage du cadrage : la scène est poussée vers la gauche pour laisser la place
+    // aux encarts de droite (bandeau soleil, graphes en direct). Nul pour les exports.
+    const shift = (this.viewShift ?? 0.2) * half * a;
+    this.camera.left = -half * a + shift;
+    this.camera.right = half * a + shift;
     this.camera.top = half;
     this.camera.bottom = -half;
     this.camera.updateProjectionMatrix();
@@ -181,6 +187,7 @@ export class SolarScene {
     this.controls.update();
     this.applyHidden();
     this.sunGroup.visible = view !== 'int';
+    this.maskDome.visible = view !== 'int' && !!this.maskVisible;
     this.applyViewDetails();
     this.applyClip();
   }
@@ -667,6 +674,73 @@ export class SolarScene {
       this.ray.geometry = new THREE.BufferGeometry().setFromPoints([pos, hit]);
       this.ray.computeLineDistances();
     }
+  }
+
+  /**
+   * Sphère de masque solaire : la voûte de l'héliodon colorée selon la part du vitrage
+   * au soleil pour chaque direction du ciel (grille de maskGrid, aux sommets).
+   * Seule la face intérieure est dessinée : la moitié avant reste transparente,
+   * on voit le bâtiment au premier plan et la voûte colorée derrière lui.
+   */
+  setMask(grid, facadeAz, visible) {
+    this.maskVisible = visible;
+    this.maskDome.visible = visible && this.view !== 'int';
+    if (!grid || grid === this.maskGridRef) return;
+    this.maskGridRef = grid;
+    disposeGroup(this.maskDome);
+    const { step, values } = grid;
+    const rows = values.length;
+    const cols = values[0].length;
+    const pos = [];
+    const col = [];
+    const c = this.center;
+    const tmp = new THREE.Color();
+    for (let i = 0; i < rows; i++) {
+      for (let j = 0; j < cols; j++) {
+        const s = sunVectorLocal(Math.min(89.9, i * step), j * step, facadeAz);
+        pos.push(c.x + s.x * DOME * 1.003, c.y + s.y * DOME * 1.003, c.z + s.z * DOME * 1.003);
+        const [r, g, b] = maskColor(values[i][j]);
+        tmp.setRGB(r / 255, g / 255, b / 255, THREE.SRGBColorSpace);
+        col.push(tmp.r, tmp.g, tmp.b);
+      }
+    }
+    const idx = [];
+    for (let i = 0; i < rows - 1; i++) {
+      for (let j = 0; j < cols - 1; j++) {
+        const a = i * cols + j;
+        idx.push(a, a + 1, a + cols, a + 1, a + cols + 1, a + cols);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    geo.setIndex(idx);
+    const dome = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+      vertexColors: true, side: THREE.FrontSide, transparent: true, opacity: 0.92, depthWrite: false,
+    }));
+    this.maskDome.add(dome);
+    // Moitié avant (côté caméra) en transparence, pour garder le bâtiment lisible
+    const front = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+      vertexColors: true, side: THREE.BackSide, transparent: true, opacity: 0.5, depthWrite: false,
+    }));
+    this.maskDome.add(front);
+    // Méridiens et parallèles fins, comme sur une sphère de masque
+    const lines = [];
+    for (let i = 0; i < rows; i += 3) {
+      for (let j = 0; j < cols - 1; j++) {
+        const a = (i * cols + j) * 3;
+        const b = a + 3;
+        lines.push(pos[a], pos[a + 1], pos[a + 2], pos[b], pos[b + 1], pos[b + 2]);
+      }
+    }
+    for (let j = 0; j < cols; j += 3) {
+      for (let i = 0; i < rows - 1; i++) {
+        const a = (i * cols + j) * 3;
+        const b = a + cols * 3;
+        lines.push(pos[a], pos[a + 1], pos[a + 2], pos[b], pos[b + 1], pos[b + 2]);
+      }
+    }
+    this.maskDome.add(segments(lines, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45 })));
   }
 
   setPaths(paths, facadeAz) {

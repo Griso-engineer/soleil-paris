@@ -1,11 +1,11 @@
 import { sunPosition, parisLocalToUTC, sunTimes, dayOfYearToDate, isSummerTime } from './solar.js';
 import {
-  GLAZINGS, PROTECTIONS, defaultConfig, makeModel, evaluate, dailyProfile, integrate, porosity,
+  GLAZINGS, PROTECTIONS, defaultConfig, makeModel, evaluate, dailyProfile, integrate, porosity, maskGrid,
 } from './shading.js';
 import { SolarScene } from './scene3d.js';
 import { exportReport } from './report.js';
 import {
-  renderSunPath, renderDayChart, renderLiveDay, renderMonthChart, renderComparison, fmtHour, fmt, MONTHS,
+  renderSunPath, renderDayChart, renderLiveDay, maskLegendHTML, renderMonthChart, renderComparison, fmtHour, fmt, MONTHS,
 } from './charts.js';
 
 const YEAR = new Date().getFullYear();
@@ -52,6 +52,7 @@ let ref = null;
 let dayData = null;
 let monthData = null;
 let heatData = null;
+let maskData = null; // grilles du masque solaire (2D : centres de cases, 3D : sommets)
 
 // ---------------------------------------------------------------------------
 // Construction des contrôles
@@ -271,6 +272,14 @@ function recomputeSlow() {
   const refLow = makeModel({ ...cfg, type: 'none' }, 8);
   const curLow = makeModel(cfg, 8);
 
+  // Masque solaire de la protection choisie (grille de 10 × 10 points sur le vitrage)
+  {
+    const mm = makeModel(cfg, 10);
+    maskData = { flat: maskGrid(mm, 5, true), dome: maskGrid(mm, 5, false) };
+    if (scene) scene.setMask(maskData.dome, state.facadeAz, maskOn);
+    updateInstant(true);
+  }
+
   // Bilan mensuel
   monthData = [];
   for (let mo = 0; mo < 12; mo++) {
@@ -434,6 +443,21 @@ $('liveToggle').addEventListener('click', () => {
 });
 applyLive();
 
+// Sphère de masque solaire sur la vue 3D (affichable / masquable, choix mémorisé)
+let maskOn = false; // désactivée par défaut : le dessin au trait reste lisible
+try { maskOn = localStorage.getItem('mask3d') === 'on'; } catch { /* stockage indisponible */ }
+function applyMaskToggle() {
+  $('maskToggle').setAttribute('aria-pressed', String(maskOn));
+  if (scene && maskData) scene.setMask(maskData.dome, state.facadeAz, maskOn);
+}
+$('maskToggle').addEventListener('click', () => {
+  maskOn = !maskOn;
+  try { localStorage.setItem('mask3d', maskOn ? 'on' : 'off'); } catch { /* stockage indisponible */ }
+  applyMaskToggle();
+});
+applyMaskToggle();
+$('maskLegend').innerHTML = maskLegendHTML();
+
 let lastSunPath = 0;
 function updateInstant(force = false) {
   const sun = sunPosition(parisLocalToUTC(YEAR, state.doy, state.hour));
@@ -475,8 +499,8 @@ function updateInstant(force = false) {
   const now = performance.now();
   if (force || !playing || now - lastSunPath > 200) {
     lastSunPath = now;
-    renderSunPath($('sunPath'), { year: YEAR, doy: state.doy, hour: state.hour, sun, facadeAz: state.facadeAz });
-    if (liveOn) renderSunPath($('liveSun'), { year: YEAR, doy: state.doy, hour: state.hour, sun, facadeAz: state.facadeAz });
+    renderSunPath($('sunPath'), { year: YEAR, doy: state.doy, hour: state.hour, sun, facadeAz: state.facadeAz, mask: maskData?.flat });
+    if (liveOn) renderSunPath($('liveSun'), { year: YEAR, doy: state.doy, hour: state.hour, sun, facadeAz: state.facadeAz, mask: maskData?.flat });
     const t = dayData ? dayData.times : sunTimes(YEAR, state.doy);
     $('sunFacts').innerHTML = `
       <div><span>Lever</span><b>${t.rise === null ? '—' : fmtHour(t.rise)}</b></div>
