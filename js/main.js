@@ -5,7 +5,7 @@ import {
 import { SolarScene } from './scene3d.js';
 import { exportReport } from './report.js';
 import {
-  renderSunPath, renderDayChart, renderMonthChart, renderComparison, fmtHour, fmt, MONTHS,
+  renderSunPath, renderDayChart, renderLiveDay, renderMonthChart, renderComparison, fmtHour, fmt, MONTHS,
 } from './charts.js';
 
 const YEAR = new Date().getFullYear();
@@ -419,6 +419,21 @@ function heatwaveRise(avoidedWh, floor) {
   };
 }
 
+// Graphes en direct sur la vue 3D (affichables / masquables, choix mémorisé)
+let liveOn = true;
+try { liveOn = localStorage.getItem('live3d') !== 'off'; } catch { /* stockage indisponible */ }
+function applyLive() {
+  $('live').hidden = !liveOn;
+  $('liveToggle').setAttribute('aria-pressed', String(liveOn));
+}
+$('liveToggle').addEventListener('click', () => {
+  liveOn = !liveOn;
+  try { localStorage.setItem('live3d', liveOn ? 'on' : 'off'); } catch { /* stockage indisponible */ }
+  applyLive();
+  updateInstant(true);
+});
+applyLive();
+
 let lastSunPath = 0;
 function updateInstant(force = false) {
   const sun = sunPosition(parisLocalToUTC(YEAR, state.doy, state.hour));
@@ -454,12 +469,14 @@ function updateInstant(force = false) {
       without: dayData.without, withP: dayData.withP, hour: state.hour, area,
       onPick: (h) => set({ hour: Math.round(h * 12) / 12 }),
     });
+    if (liveOn) renderLiveDay($('liveDay'), { without: dayData.without, withP: dayData.withP, hour: state.hour, area });
   }
 
   const now = performance.now();
   if (force || !playing || now - lastSunPath > 200) {
     lastSunPath = now;
     renderSunPath($('sunPath'), { year: YEAR, doy: state.doy, hour: state.hour, sun, facadeAz: state.facadeAz });
+    if (liveOn) renderSunPath($('liveSun'), { year: YEAR, doy: state.doy, hour: state.hour, sun, facadeAz: state.facadeAz });
     const t = dayData ? dayData.times : sunTimes(YEAR, state.doy);
     $('sunFacts').innerHTML = `
       <div><span>Lever</span><b>${t.rise === null ? '—' : fmtHour(t.rise)}</b></div>

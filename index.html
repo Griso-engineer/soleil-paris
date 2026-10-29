@@ -50,7 +50,7 @@
   <section class="manifesto" aria-label="Introduction">
     <div class="manifesto-label">Pourquoi</div>
     <p class="manifesto-text" data-scrub>
-      Une fenêtre au soleil d'été fait entrer autant de chaleur qu'un radiateur allumé. La protection qui l'arrête se trouve dehors, avant la vitre, et elle n'est efficace que bien orientée et fermée au bon moment. Ce simulateur montre pourquoi, pour votre fenêtre et votre orientation.
+      Une fenêtre au soleil d'été fait entrer autant de chaleur qu'un radiateur allumé. La protection qui l'arrête doit se trouver dehors, avant la vitre, et elle n'est efficace que bien orientée et déployée au bon moment. Ce simulateur en évalue l'efficacité dans le contexte parisien, pour votre fenêtre et votre orientation.
     </p>
   </section>
 
@@ -180,7 +180,14 @@
             <button type="button" data-v="int">Intérieur</button>
             <button type="button" data-v="coupe">Coupe</button>
           </div>
-          <div class="sun-badge" id="sunBadge" aria-live="polite"></div>
+          <div class="viewer-right">
+            <div class="sun-badge" id="sunBadge" aria-live="polite"></div>
+            <div class="live" id="live" aria-hidden="true">
+              <div class="live-card"><div class="live-title">Chaleur entrant <span><i class="sw sw-2"></i>sans <i class="sw sw-1"></i>avec</span></div><div id="liveDay"></div></div>
+              <div class="live-card"><div class="live-title">Course du soleil</div><div id="liveSun"></div></div>
+            </div>
+          </div>
+          <button type="button" class="live-toggle" id="liveToggle" aria-pressed="true">Graphes en direct</button>
           <div class="viewer-hint">Glisser pour tourner · Ctrl + molette pour zoomer</div>
         </div>
 

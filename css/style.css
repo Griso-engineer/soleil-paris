@@ -209,7 +209,7 @@ input[type="range"]:focus-visible { outline: 2px solid var(--c-coral); outline-o
 .viewer canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .seg-float { position: absolute; top: 14px; left: 14px; z-index: 2; background: var(--paper); }
 .sun-badge {
-  position: absolute; top: 14px; right: 14px; z-index: 2;
+  position: relative; z-index: 2;
   background: var(--paper); color: var(--ink); padding: 10px 12px; font-size: 13px; line-height: 1.45;
   font-variant-numeric: tabular-nums; max-width: 250px;
 }
@@ -462,7 +462,9 @@ input[type="range"]:focus-visible { outline: 2px solid var(--c-coral); outline-o
   .cmp-bar { grid-column: 1 / -1; grid-row: 2; }
   .cmp-head span:nth-child(2) { display: none; }
   .viewer { height: 52vh; }
-  .sun-badge { top: auto; bottom: 10px; left: 10px; right: 10px; max-width: none; font-size: 12px; padding: 6px 10px; }
+  .viewer-right { top: auto; bottom: 10px; left: 10px; right: 10px; align-items: stretch; }
+  .sun-badge { max-width: none; font-size: 12px; padding: 6px 10px; }
+  .live, .live-toggle { display: none !important; }
   .viewer-hint { display: none; }
   .story-item, .block-head, .facts > div { grid-template-columns: 32px minmax(0, 1fr); gap: 14px; }
   .fig-svg { width: 55%; }
@@ -541,3 +543,31 @@ html.printing {
   .rp-kpis .kpi-wide { grid-column: auto; }
   @media screen { #report { width: 186mm; margin: 0 auto; } .rp-page { min-height: 275mm; border-bottom: 2px dashed #ccc; margin-bottom: 8mm; } }
 }
+
+/* ---------- Graphes en direct sur la vue 3D ---------- */
+.viewer-right {
+  position: absolute; top: 14px; right: 14px; z-index: 2;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+  pointer-events: none; /* la vue 3D reste manipulable sous les encarts */
+}
+.viewer-right .sun-badge { pointer-events: auto; }
+.live { display: flex; flex-direction: column; gap: 8px; width: 210px; }
+.live[hidden] { display: none; }
+.live-card { background: rgba(255, 255, 255, 0.92); padding: 6px 8px 4px; }
+.live-title { display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 700; margin-bottom: 2px; }
+.live-title span { display: inline-flex; align-items: center; gap: 4px; font-weight: 500; color: var(--muted); }
+.live-title .sw { width: 10px; }
+.live .chart-svg { width: 100%; }
+.live .tick { font-size: 9px; }
+/* Course du soleil compacte : le diagramme est réduit, on grossit ses textes */
+#liveSun .chart-svg { max-width: 170px; margin: 0 auto; display: block; }
+#liveSun .sp-cardinal { font-size: 22px; }
+#liveSun .sp-label, #liveSun .sp-hlabel { display: none; }
+#liveSun .sp-today { stroke-width: 4; }
+#liveSun .sp-facade { stroke-width: 5; }
+.live-toggle {
+  position: absolute; bottom: 12px; right: 14px; z-index: 2;
+  border: 1px solid var(--rule); background: var(--paper); padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.live-toggle[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.live-toggle:focus-visible { outline: 2px solid var(--c-coral); outline-offset: 2px; }

@@ -163,7 +163,72 @@ export function renderSunPath(container, { year, doy, hour, sun, facadeAz }) {
 // Profil journalier
 // ---------------------------------------------------------------------------
 
+// Lissage d'affichage : le calcul échantillonne l'ombre sur une grille de points, ce qui
+// donne de petites marches d'un pas de temps à l'autre. On les gomme par une moyenne
+// gaussienne (pour l'affichage seulement : les totaux sont calculés sur les valeurs brutes).
+function smoothProfile(arr, radius = 3) {
+  const w = [];
+  for (let k = -radius; k <= radius; k++) w.push(Math.exp(-(k * k) / (2 * (radius / 2) ** 2)));
+  return arr.map((p, i) => {
+    let s = 0;
+    let n = 0;
+    for (let k = -radius; k <= radius; k++) {
+      const q = arr[i + k];
+      if (!q) continue;
+      s += q.gain * w[k + radius];
+      n += w[k + radius];
+    }
+    return { ...p, gain: p.gain === 0 && s / n < 1e-3 ? 0 : s / n };
+  });
+}
+
+// Tracé courbe passant par les points (Catmull-Rom converti en Bézier cubiques)
+function curve(pts) {
+  if (pts.length < 2) return '';
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] || p2;
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  return d;
+}
+
+/** Version compacte, posée sur la vue 3D : les deux courbes et l'heure courante. */
+export function renderLiveDay(container, { without, withP, hour, area }) {
+  const W = 220;
+  const H = 92;
+  const m = { l: 6, r: 6, t: 14, b: 14 };
+  const svg = svgRoot(container, W, H, 'Chaleur solaire entrant au fil de la journée');
+  const a = smoothProfile(without);
+  const b = smoothProfile(withP);
+  const ymax = niceMax(Math.max(100, ...a.map((p) => p.gain * area)) * 1.05);
+  const x = (h) => m.l + (h / 24) * (W - m.l - m.r);
+  const y = (v) => m.t + (H - m.t - m.b) - (v / ymax) * (H - m.t - m.b);
+  const pts = (arr) => arr.map((p) => [x(p.h), y(p.gain * area)]);
+  el('line', { x1: m.l, x2: W - m.r, y1: y(0), y2: y(0), class: 'axis' }, svg);
+  el('path', { d: `${curve(pts(b))} L${x(24)},${y(0)} L${x(0)},${y(0)} Z`, class: 'area-1' }, svg);
+  el('path', { d: curve(pts(a)), class: 'line-2' }, svg);
+  el('path', { d: curve(pts(b)), class: 'line-1' }, svg);
+  for (const h of [6, 12, 18]) {
+    el('text', { x: x(h), y: H - 3, 'text-anchor': 'middle', class: 'tick' }, svg).textContent = `${h}h`;
+  }
+  el('text', { x: m.l, y: 10, class: 'tick' }, svg).textContent = `${fmt(ymax)} W`;
+  el('line', { x1: x(hour), x2: x(hour), y1: m.t, y2: y(0), class: 'now' }, svg);
+  const i = Math.max(0, Math.min(b.length - 1, Math.round((hour / 24) * (b.length - 1))));
+  el('circle', { cx: x(hour), cy: y(a[i].gain * area), r: 3.5, class: 'dot-2' }, svg);
+  el('circle', { cx: x(hour), cy: y(b[i].gain * area), r: 3.5, class: 'dot-1' }, svg);
+  el('text', { x: Math.min(W - m.r, x(hour) + 4), y: m.t + 8, 'text-anchor': x(hour) > W - 60 ? 'end' : 'start', class: 'tick tick-strong' }, svg)
+    .textContent = `${fmt(b[i].gain * area)} W`;
+}
+
 export function renderDayChart(container, { without, withP, hour, area, onPick }) {
+  without = smoothProfile(without);
+  withP = smoothProfile(withP);
   const W = 640;
   const H = 260;
   const m = { l: 48, r: 16, t: 16, b: 30 };
@@ -186,7 +251,7 @@ export function renderDayChart(container, { without, withP, hour, area, onPick }
     el('text', { x: x(h), y: H - 10, 'text-anchor': 'middle', class: 'tick' }, svg).textContent = `${h}h`;
   }
 
-  const path = (arr, key) => arr.map((p, i) => `${i ? 'L' : 'M'}${x(p.h).toFixed(1)},${y(p[key] * area).toFixed(1)}`).join(' ');
+  const path = (arr, key) => curve(arr.map((p) => [x(p.h), y(p[key] * area)]));
   const areaPath = `${path(withP, 'gain')} L${x(24)},${y(0)} L${x(0)},${y(0)} Z`;
   el('path', { d: areaPath, class: 'area-1' }, svg);
   el('path', { d: path(without, 'gain'), class: 'line-2' }, svg);
