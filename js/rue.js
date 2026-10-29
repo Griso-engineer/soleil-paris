@@ -3,10 +3,11 @@
 
 import { sunPosition, parisLocalToUTC, sunTimes, dayOfYearToDate, isSummerTime } from './solar.js';
 import {
-  FLOOR, defaultStreet, windowOf, obstructionAngle, skyView, shadowHeight,
-  evaluateStreet, streetDay, streetMaskGrid,
+  FLOOR, defaultStreet, windowOf, obstructionAngle, skyView, shadowHeight, sunlitFraction,
+  evaluateStreet, streetDay, streetMaskGrid, facingRanges,
 } from './street.js';
 import { renderSunPath, renderMonthChart, maskLegendHTML, fmtHour, fmt, MONTHS } from './charts.js';
+import { sunVectorLocal } from './shading.js';
 
 const YEAR = new Date().getFullYear();
 const $ = (id) => document.getElementById(id);
@@ -91,10 +92,6 @@ $('presets').addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (b) set({ doy: parseInt(b.dataset.doy, 10) });
 });
-$('streetPresets').addEventListener('click', (e) => {
-  const b = e.target.closest('button');
-  if (b) set({ width: parseFloat(b.dataset.w), hOpp: parseFloat(b.dataset.h) });
-});
 $('maskLegend').innerHTML = maskLegendHTML().replace('Part du vitrage au soleil', 'Part de la fenêtre au soleil');
 
 // ---------------------------------------------------------------------------
@@ -132,9 +129,6 @@ function syncControls() {
   for (const b of rose.querySelectorAll('button')) b.setAttribute('aria-pressed', String(+b.dataset.az === state.facadeAz));
   needle.style.transform = `rotate(${state.facadeAz - 180}deg)`;
   for (const b of $('presets').querySelectorAll('button')) b.setAttribute('aria-pressed', String(+b.dataset.doy === state.doy));
-  for (const b of $('streetPresets').querySelectorAll('button')) {
-    b.setAttribute('aria-pressed', String(+b.dataset.w === state.width && +b.dataset.h === state.hOpp));
-  }
 }
 
 function recomputeDay() {
@@ -149,15 +143,56 @@ function recomputeDay() {
   }
   const { zc } = windowOf(state.floor);
   const alpha = obstructionAngle(state, zc);
+  dayData.ranges = facingRanges(state.facadeAz, YEAR, state.doy);
   kpis($('kpisDay'), [
-    { hero: true, label: 'Soleil direct sur la fenêtre', value: durationLabel(dayData.h1), note: `façade dégagée : <b>${durationLabel(dayData.h0)}</b>` },
+    { hero: true, label: 'Soleil direct sur la fenêtre', value: durationLabel(dayData.h1), note: `sur <b>${durationLabel(dayData.h0)}</b> de soleil face à la façade` },
     { label: 'Énergie solaire reçue', value: fmt(dayData.e1), unit: 'Wh/m²', note: `façade dégagée : <b>${fmt(dayData.e0)} Wh/m²</b>` },
     { label: 'Énergie retirée par le vis-à-vis', value: dayData.e0 > 1 ? fmt((1 - dayData.e1 / dayData.e0) * 100) : '—', unit: '%', meter: dayData.e0 > 1 ? 1 - dayData.e1 / dayData.e0 : 0 },
     { label: "Angle d'obstruction", value: alpha > 0 ? fmt(alpha) : '0', unit: '°', note: 'vu du milieu de la fenêtre' },
     { label: 'Ciel visible', value: fmt(skyView(state, zc) * 100), unit: '%', note: 'par rapport à une façade dégagée' },
     { label: 'Rapport H / L', value: fmt(state.hOpp / state.width, 2), note: 'hauteur en face / largeur de rue' },
   ]);
-  $('kpiDayLabel').textContent = `${dateLabel(state.doy)}, ciel clair, ${floorName(state.floor)}`;
+  $('kpiDayLabel').textContent = dayData.ranges.length
+    ? `${dateLabel(state.doy)}, ${rangesLabel(dayData.ranges)}, ciel clair, ${floorName(state.floor)}`
+    : `${dateLabel(state.doy)} : le soleil ne passe pas devant cette façade`;
+  renderRanges();
+}
+
+function rangesLabel(ranges) {
+  return ranges.map(([a, b]) => `de ${fmtHour(a)} à ${fmtHour(b)}`).join(' et ');
+}
+
+// Plages horaires où le soleil fait face à chaque orientation, pour le jour choisi.
+// L'orientation étudiée est en noir ; les autres en gris, pour comparer.
+const RANGE_AXIS = [4, 22];
+// Position du repère « maintenant » : colonnes de 40 px + 12 px à gauche, 190 px + 12 px à droite
+function nowLeft(h) {
+  const p = (Math.max(RANGE_AXIS[0], Math.min(RANGE_AXIS[1], h)) - RANGE_AXIS[0]) / (RANGE_AXIS[1] - RANGE_AXIS[0]);
+  return `calc(52px + (100% - 254px) * ${p.toFixed(4)})`;
+}
+function renderRanges() {
+  const [h0, h1] = RANGE_AXIS;
+  const pos = (h) => ((Math.max(h0, Math.min(h1, h)) - h0) / (h1 - h0)) * 100;
+  const cur = ((Math.round(state.facadeAz / 45) * 45) % 360 + 360) % 360;
+  const rows = ORIENTS.map(([label, az]) => {
+    const rs = facingRanges(az, YEAR, state.doy);
+    const isCur = az === cur;
+    const bars = rs.map(([a, b]) => `<i style="left:${pos(a)}%;width:${pos(b) - pos(a)}%"></i>`).join('');
+    const txt = rs.length ? rs.map(([a, b]) => `${fmtHour(a)} → ${fmtHour(b)}`).join(' · ') : '—';
+    return `<div class="rg-row${isCur ? ' is-current' : ''}">
+      <span class="rg-name">${label}</span>
+      <span class="rg-track">${bars}</span>
+      <span class="rg-txt">${txt}</span>
+    </div>`;
+  }).join('');
+  const ticks = [6, 9, 12, 15, 18, 21].map((h) => `<span style="left:${pos(h)}%">${h} h</span>`).join('');
+  $('ranges').innerHTML = `<div class="ranges">
+    ${rows}
+    <div class="rg-row rg-axis"><span></span><span class="rg-track rg-ticks">${ticks}</span><span></span></div>
+    <b class="rg-now" style="left:${nowLeft(state.hour)}"></b>
+  </div>`;
+  const exact = state.facadeAz % 45 === 0;
+  $('rangesSub').textContent = `${dateLabel(state.doy)}. Barres : heures pendant lesquelles le soleil est levé et devant une façade de cette orientation. En noir, l'orientation la plus proche de la façade étudiée${exact ? '' : ` (${state.facadeAz}°)`}.`;
 }
 
 let slowTimer = null;
@@ -238,143 +273,242 @@ function updateInstant(force = false) {
     { label: 'Rayonnement reçu', value: fmt(r.withMask), unit: 'W/m²', note: `façade dégagée : <b>${fmt(r.without)} W/m²</b>` },
     { label: 'Angle de profil du soleil', value: r.prof ? fmt(r.prof.deg) : '—', unit: r.prof ? '°' : '', note: `à comparer à l'angle d'obstruction : <b>${fmt(Math.max(0, obstructionAngle(state, windowOf(state.floor).zc)))}°</b>` },
   ]);
-  $('kpiNowLabel').textContent = `${dateLabel(state.doy)}, ${fmtHour(state.hour)}`;
+  $('kpiNowLabel').textContent = `${dateLabel(state.doy)}, ${fmtHour(state.hour)}, ${floorName(state.floor)}`;
+  const now0 = document.querySelector('#ranges .rg-now');
+  if (now0) now0.style.left = nowLeft(state.hour);
 
   const now = performance.now();
-  if (mask && (force || !playing || now - lastPolar > 200)) {
+  if (mask && (force || now - lastPolar > 120)) {
     lastPolar = now;
     renderSunPath($('sunPath'), { year: YEAR, doy: state.doy, hour: state.hour, sun, facadeAz: state.facadeAz, mask });
   }
 }
 
-/** Coupe de rue dessinée au trait, avec l'ombre et le rayon de soleil de l'instant. */
+/**
+ * Coupe de rue, dans l'esprit des schémas de « canyon urbain » : bâtiments hachurés,
+ * faisceau de rayons parallèles, ombre portée grisée. Le soleil se déplace uniquement
+ * dans le plan de la coupe (angle de profil) ; il est dessiné en tirets quand il n'éclaire
+ * pas la façade (derrière elle ou sous l'horizon). À droite : le masque en plan.
+ */
+const SEC_W = 660; // largeur réservée à la coupe dans le dessin
 function drawStreet(container, cfg, sun, r) {
   const W = 900;
   const H = 540;
   const depth = 5; // profondeur de bâtiment dessinée (m)
   const hMax = Math.max(cfg.hOwn, cfg.hOpp, 6);
-  const k = Math.min((W - 120) / (2 * depth + cfg.width), (H - 110) / (hMax * 1.18));
-  const xf = (W - (2 * depth + cfg.width) * k) / 2 + depth * k; // nu de notre façade
-  const yg = H - 64; // sol
+  const k = Math.min((SEC_W - 90) / (2 * depth + cfg.width), (H - 130) / (hMax * 1.3));
+  const xf = 40 + depth * k; // nu de notre façade
+  const yg = H - 70; // sol
   const X = (x) => xf + x * k;
   const Y = (y) => yg - y * k;
-  const svg = document.createElementNS(NS, 'svg');
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  svg.setAttribute('class', 'street-svg');
-  svg.setAttribute('role', 'img');
-  svg.setAttribute('aria-label', 'Coupe de la rue avec l\'ombre de l\'immeuble d\'en face');
-  const add = (tag, attrs, text) => {
-    const e = document.createElementNS(NS, tag);
-    for (const [a, v] of Object.entries(attrs)) e.setAttribute(a, v);
-    if (text !== undefined) e.textContent = text;
-    svg.appendChild(e);
-    return e;
-  };
-  svg.innerHTML = `<defs>
-    <pattern id="st-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" class="st-hatch-line"/></pattern>
-    <marker id="st-tick" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M2 8 L8 2" class="st-tick"/></marker>
-  </defs>`;
-
   const { zb, zt, zc } = windowOf(cfg.floor);
+  const s = r.s;
+  const relevant = sun.altitude > 0 && s.z > 0;
   const prof = r.prof;
-  const hs = prof ? shadowHeight(cfg, prof) : null;
+  const parts = [];
+  const add = (html) => parts.push(html);
+  const uid = `st${Math.random().toString(36).slice(2, 7)}`;
 
-  // Sol et sous-sol hachuré
-  add('rect', { x: 0, y: yg, width: W, height: 16, fill: 'url(#st-hatch)', class: 'st-ground' });
-  add('line', { x1: 0, y1: yg, x2: W, y2: yg, class: 'st-line' });
+  // Angle du soleil dans le plan de coupe (0° : horizontal côté rue, 180° : côté arrière)
+  let phi = (Math.atan2(s.y, s.z) * 180) / Math.PI;
+  if (sun.altitude <= 0) phi = s.z >= 0 ? 0 : 180;
+  phi = Math.max(0, Math.min(180, phi));
+  const pr = (phi * Math.PI) / 180;
 
-  // Ombre portée sur la chaussée (de l'immeuble d'en face vers nous)
-  if (prof) {
-    const len = cfg.hOpp / prof.tan;
-    const x0 = Math.max(0, cfg.width - len);
-    if (cfg.hOpp > 0) add('rect', { x: X(x0), y: yg - 5, width: X(cfg.width) - X(x0), height: 5, class: 'st-shade' });
+  // Rayons et ombre, uniquement quand le soleil éclaire la façade
+  const top = hMax * 1.18;
+  if (relevant && prof) {
+    const t = prof.tan;
+    const yLine = (x) => cfg.hOpp - (cfg.width - x) * t; // rayon rasant le toit d'en face
+    const xg = cfg.width - cfg.hOpp / t; // où ce rayon touche la chaussée
+    const lit = [[0, top], [cfg.width + depth, top], [cfg.width + depth, cfg.hOpp], [cfg.width, cfg.hOpp]];
+    const shade = [[cfg.width, cfg.hOpp], [cfg.width, 0]];
+    if (yLine(0) >= 0) {
+      lit.push([0, Math.min(top, yLine(0))]);
+      shade.push([0, 0], [0, Math.min(cfg.hOwn, yLine(0))]);
+    } else {
+      lit.push([Math.max(0, xg), 0], [0, 0]);
+      shade.push([Math.max(0, xg), 0]);
+    }
+    const poly = (pts) => pts.map(([x, y]) => `${X(x).toFixed(1)},${Y(y).toFixed(1)}`).join(' ');
+    add(`<defs><pattern id="${uid}-rays" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(${(90 - phi).toFixed(1)})"><line x1="0" y1="0" x2="0" y2="9" class="st-ray-line"/></pattern></defs>`);
+    add(`<polygon points="${poly(lit)}" fill="url(#${uid}-rays)" class="st-light"/>`);
+    if (cfg.hOpp > 0) add(`<polygon points="${poly(shade)}" class="st-shadow"/>`);
+    if (cfg.hOpp > 0) add(`<line x1="${X(cfg.width)}" y1="${Y(cfg.hOpp)}" x2="${X(Math.max(0, xg))}" y2="${Y(Math.max(0, yLine(0)))}" class="st-ray-edge"/>`);
   }
 
-  // Immeubles
+  // Sol pointillé
+  add(`<rect x="0" y="${yg}" width="${SEC_W}" height="14" fill="url(#st-dots)"/>`);
+  add(`<line x1="0" y1="${yg}" x2="${SEC_W}" y2="${yg}" class="st-line"/>`);
+
+  // Immeubles hachurés
   const building = (x0, x1, h, label) => {
-    add('rect', { x: X(x0), y: Y(h), width: X(x1) - X(x0), height: Y(0) - Y(h), class: 'st-building' });
-    for (let y = FLOOR; y < h - 0.01; y += FLOOR) add('line', { x1: X(x0), x2: X(x1), y1: Y(y), y2: Y(y), class: 'st-floor' });
-    if (h > 2) add('text', { x: (X(x0) + X(x1)) / 2, y: Y(h) - 8, 'text-anchor': 'middle', class: 'st-label' }, label);
+    add(`<rect x="${X(x0)}" y="${Y(h)}" width="${X(x1) - X(x0)}" height="${Y(0) - Y(h)}" fill="url(#st-hatch)" class="st-building"/>`);
+    if (h > 2) add(`<text x="${(X(x0) + X(x1)) / 2}" y="${Y(h) - 8}" text-anchor="middle" class="st-label">${label}</text>`);
   };
   building(-depth, 0, cfg.hOwn, 'notre immeuble');
   if (cfg.hOpp > 0) building(cfg.width, cfg.width + depth, cfg.hOpp, 'en face');
 
-  // Ombre portée sur notre façade
-  if (prof && hs > 0) {
-    const top = Math.min(hs, cfg.hOwn);
-    add('rect', { x: X(0), y: Y(top), width: 0.45 * k, height: Y(0) - Y(top), class: 'st-shade' });
-  }
-
-  // Fenêtres de notre façade ; la fenêtre étudiée est remplie selon sa part au soleil
+  // Fenêtres de notre façade (blanches) ; celle étudiée se remplit selon sa part au soleil
   for (let n = 0; n <= maxFloor(); n++) {
     const w = windowOf(n);
     const cur = n === cfg.floor;
-    add('rect', { x: X(-0.3), y: Y(w.zt), width: 0.3 * k, height: Y(w.zb) - Y(w.zt), class: cur ? 'st-win st-win-cur' : 'st-win' });
+    add(`<rect x="${X(-0.35)}" y="${Y(w.zt)}" width="${0.35 * k}" height="${Y(w.zb) - Y(w.zt)}" class="${cur ? 'st-win st-win-cur' : 'st-win'}"/>`);
     if (cur && r.lit > 0) {
-      const litTop = w.zt;
       const litBot = w.zt - r.lit * (w.zt - w.zb);
-      add('rect', { x: X(-0.3), y: Y(litTop), width: 0.3 * k, height: Y(litBot) - Y(litTop), class: 'st-win-lit' });
+      add(`<rect x="${X(-0.35)}" y="${Y(w.zt)}" width="${0.35 * k}" height="${Y(litBot) - Y(w.zt)}" class="st-win-lit"/>`);
     }
   }
-  add('text', { x: X(-depth) - 8, y: Y(zc) + 4, 'text-anchor': 'end', class: 'st-cote-text' }, floorShort(cfg.floor));
-  add('line', { x1: X(-depth) - 4, x2: X(-0.3), y1: Y(zc), y2: Y(zc), class: 'st-guide' });
+  add(`<text x="${X(-depth) - 8}" y="${Y(zc) + 4}" text-anchor="end" class="st-cote-text">${floorShort(cfg.floor)}</text>`);
+
+  // Un passant, pour l'échelle
+  {
+    const px = X(cfg.width * 0.3);
+    const u = k * 1.7; // 1,70 m
+    add(`<g class="st-person" transform="translate(${px},${yg})"><circle cx="0" cy="${-u * 0.9}" r="${u * 0.09}"/><path d="M0 ${-u * 0.8} V${-u * 0.42} M0 ${-u * 0.42} L${-u * 0.12} 0 M0 ${-u * 0.42} L${u * 0.12} 0 M${-u * 0.16} ${-u * 0.62} L${u * 0.16} ${-u * 0.62}"/></g>`);
+  }
 
   // Angle d'obstruction depuis le milieu de la fenêtre
   const alpha = obstructionAngle(cfg, zc);
   if (cfg.hOpp > zc) {
-    add('line', { x1: X(0), y1: Y(zc), x2: X(cfg.width), y2: Y(cfg.hOpp), class: 'st-obst' });
-    add('line', { x1: X(0), y1: Y(zc), x2: X(Math.min(cfg.width, 8)), y2: Y(zc), class: 'st-guide' });
-    const rad = Math.min(70, cfg.width * k * 0.45);
+    add(`<line x1="${X(0)}" y1="${Y(zc)}" x2="${X(cfg.width)}" y2="${Y(cfg.hOpp)}" class="st-obst"/>`);
+    add(`<line x1="${X(0)}" y1="${Y(zc)}" x2="${X(Math.min(cfg.width, 8))}" y2="${Y(zc)}" class="st-guide"/>`);
+    const rad = Math.min(60, cfg.width * k * 0.45);
     const a = (alpha * Math.PI) / 180;
-    add('path', { d: `M${X(0) + rad},${Y(zc)} A${rad},${rad} 0 0 0 ${X(0) + rad * Math.cos(a)},${Y(zc) - rad * Math.sin(a)}`, class: 'st-arc' });
-    add('text', { x: X(0) + rad + 8, y: Y(zc) - rad * Math.sin(a / 2) + 4, class: 'st-angle' }, `α ${fmt(alpha)}°`);
+    add(`<path d="M${X(0) + rad},${Y(zc)} A${rad},${rad} 0 0 0 ${X(0) + rad * Math.cos(a)},${Y(zc) - rad * Math.sin(a)}" class="st-arc"/>`);
+    add(`<text x="${X(0) + rad + 6}" y="${Y(zc) - rad * Math.sin(a / 2) + 4}" class="st-angle st-angle-obst">α ${fmt(alpha)}°</text>`);
   }
 
-  // Soleil et rayon dans la coupe
-  if (prof && sun.altitude > 0) {
-    const c = Math.cos(Math.atan(prof.tan));
-    const s = Math.sin(Math.atan(prof.tan));
-    // rayon rasant le haut de l'immeuble d'en face
-    const ox = cfg.width;
-    const oy = cfg.hOpp;
-    let hx;
-    let hy;
-    if (cfg.hOpp > 0 && hs > 0) { hx = 0; hy = Math.min(hs, cfg.hOwn); } else { hx = Math.max(0, cfg.width - cfg.hOpp / prof.tan); hy = 0; }
-    const far = 1.6 * (cfg.width + depth);
-    const sx = ox + far * c;
-    const sy = oy + far * s;
-    // borne le soleil dans le dessin
-    const t = Math.min(1, (W - 40 - X(ox)) / Math.max(1, X(sx) - X(ox)), (Y(oy) - 30) / Math.max(1, Y(oy) - Y(sy)));
-    const px = ox + (sx - ox) * t;
-    const py = oy + (sy - oy) * t;
-    if (cfg.hOpp > 0) add('line', { x1: X(px), y1: Y(py), x2: X(hx), y2: Y(hy), class: 'st-ray' });
-    // rayon vers le milieu de la fenêtre, s'il l'atteint
-    if (r.lit > 0) {
-      add('line', { x1: X(0), y1: Y(zc), x2: X(0 + (py - zc) / prof.tan), y2: Y(py), class: 'st-ray st-ray-lit' });
-    }
-    const g = add('g', { transform: `translate(${X(px)},${Y(py)})`, class: 'st-sun' });
-    g.innerHTML = `<circle r="13"/>${Array.from({ length: 12 }, (_, i) => {
-      const a = (i / 12) * Math.PI * 2;
-      return `<line x1="${Math.cos(a) * 18}" y1="${Math.sin(a) * 18}" x2="${Math.cos(a) * 25}" y2="${Math.sin(a) * 25}"/>`;
-    }).join('')}`;
-    add('text', { x: X(px) - 30, y: Y(py) + 4, 'text-anchor': 'end', class: 'st-angle' }, `φ ${fmt(prof.deg)}°`);
-  } else {
-    add('text', { x: W - 24, y: 30, 'text-anchor': 'end', class: 'st-note' }, sun.altitude <= 0 ? 'Soleil couché' : 'Soleil derrière la façade : pas de soleil direct');
-  }
+  // Course du soleil dans le plan de coupe : un demi-cercle centré sur la fenêtre
+  // (quart d'ellipse côté rue, plus court côté arrière pour rester dans le dessin)
+  const Rv = Math.max(80, Y(zc) - 26);
+  const Rr = Math.max(80, SEC_W - 24 - X(0));
+  const Rl = Math.max(40, X(0) - 22);
+  add(`<path d="M${X(0) + Rr},${Y(zc)} A${Rr},${Rv} 0 0 0 ${X(0)},${Y(zc) - Rv} A${Rl},${Rv} 0 0 0 ${X(0) - Rl},${Y(zc)}" class="st-track"/>`);
+  const sx = X(0) + (Math.cos(pr) >= 0 ? Rr : Rl) * Math.cos(pr);
+  const sy = Y(zc) - Rv * Math.sin(pr);
+  if (relevant && r.lit > 0) add(`<line x1="${X(0)}" y1="${Y(zc)}" x2="${sx}" y2="${sy}" class="st-ray-lit"/>`);
+  const rays = Array.from({ length: 12 }, (_, i) => {
+    const a = (i / 12) * Math.PI * 2;
+    return `<line x1="${Math.cos(a) * 17}" y1="${Math.sin(a) * 17}" x2="${Math.cos(a) * 24}" y2="${Math.sin(a) * 24}"/>`;
+  }).join('');
+  add(`<g transform="translate(${sx.toFixed(1)},${sy.toFixed(1)})" class="st-sun${relevant ? '' : ' st-sun-off'}"><circle r="12"/>${rays}</g>`);
+  const sunTxt = relevant ? `φ ${fmt(phi)}°` : sun.altitude <= 0 ? "soleil couché" : "derrière la façade";
+  if (phi > 90) add(`<text x="${sx}" y="${sy + 40}" text-anchor="middle" class="st-angle">${sunTxt}</text>`);
+  else add(`<text x="${sx - 30}" y="${sy + 4}" text-anchor="end" class="st-angle">${sunTxt}</text>`);
 
-  // Cotes : largeur de rue et hauteur d'en face
-  const yc = yg + 34;
-  add('line', { x1: X(0), x2: X(cfg.width), y1: yc, y2: yc, class: 'st-cote', 'marker-start': 'url(#st-tick)', 'marker-end': 'url(#st-tick)' });
-  add('text', { x: (X(0) + X(cfg.width)) / 2, y: yc - 6, 'text-anchor': 'middle', class: 'st-cote-text' }, `L ${fmt(cfg.width, 1)} m`);
+  // Cotes
+  const yc = yg + 36;
+  add(`<line x1="${X(0)}" y1="${yc}" x2="${X(cfg.width)}" y2="${yc}" class="st-cote" marker-start="url(#st-tick)" marker-end="url(#st-tick)"/>`);
+  add(`<text x="${(X(0) + X(cfg.width)) / 2}" y="${yc - 6}" text-anchor="middle" class="st-cote-text">L ${fmt(cfg.width, 1)} m</text>`);
   if (cfg.hOpp > 0) {
-    const xc = X(cfg.width + depth) + 22;
-    add('line', { x1: xc, x2: xc, y1: Y(0), y2: Y(cfg.hOpp), class: 'st-cote', 'marker-start': 'url(#st-tick)', 'marker-end': 'url(#st-tick)' });
-    add('text', { x: xc + 8, y: (Y(0) + Y(cfg.hOpp)) / 2, class: 'st-cote-text', transform: `rotate(-90 ${xc + 8} ${(Y(0) + Y(cfg.hOpp)) / 2})`, 'text-anchor': 'middle', dy: '10' }, `H ${fmt(cfg.hOpp, 1)} m`);
+    const xc = X(cfg.width + depth) + 18;
+    const ym = (Y(0) + Y(cfg.hOpp)) / 2;
+    add(`<line x1="${xc}" y1="${Y(0)}" x2="${xc}" y2="${Y(cfg.hOpp)}" class="st-cote" marker-start="url(#st-tick)" marker-end="url(#st-tick)"/>`);
+    add(`<text x="${xc + 14}" y="${ym}" class="st-cote-text" text-anchor="middle" transform="rotate(-90 ${xc + 14} ${ym})">H ${fmt(cfg.hOpp, 1)} m</text>`);
   }
-  add('text', { x: 20, y: 28, class: 'st-note' }, `Coupe perpendiculaire à la façade ${orientationName(cfg.facadeAz)}`);
 
-  container.innerHTML = '';
-  container.appendChild(svg);
+  // Colonne de droite : masque en plan et plage horaire de la façade
+  add(planMask(cfg, sun, 790, 168, 86));
+  const ranges = dayData?.ranges ?? [];
+  add(`<text x="790" y="300" text-anchor="middle" class="st-side-title">Soleil face à la façade</text>`);
+  add(`<text x="790" y="322" text-anchor="middle" class="st-side-value">${ranges.length ? ranges.map(([a, b]) => `${fmtHour(a)} → ${fmtHour(b)}`).join(' · ') : 'jamais ce jour-là'}</text>`);
+  add(`<text x="790" y="342" text-anchor="middle" class="st-note">${dateLabel(state.doy)}</text>`);
+  add(`<g transform="translate(700,382)" class="st-legend">
+    <rect width="12" height="12" class="pm-sky"/><text x="18" y="10">ciel visible</text>
+    <rect y="20" width="12" height="12" class="pm-opp"/><text x="18" y="30">masqué par l'immeuble d'en face</text>
+    <rect y="40" width="12" height="12" class="pm-back"/><text x="18" y="50">derrière la façade</text>
+  </g>`);
+
+  add(`<text x="20" y="${H - 14}" class="st-tag">Schéma 2D interactif</text>`);
+  add(`<text x="20" y="28" class="st-note">Coupe perpendiculaire à la façade ${orientationName(cfg.facadeAz)}</text>`);
+
+  container.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="street-svg" role="img" aria-label="Coupe de la rue et masque en plan">
+    <defs>
+      <pattern id="st-hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="7" class="st-hatch-line"/></pattern>
+      <pattern id="st-dots" width="5" height="5" patternUnits="userSpaceOnUse"><circle cx="1.5" cy="1.5" r="0.7" class="st-dot"/><circle cx="4" cy="3.8" r="0.6" class="st-dot"/></pattern>
+      <marker id="st-tick" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M2 8 L8 2" class="st-tick"/></marker>
+    </defs>
+    ${parts.join('\n')}
+  </svg>`;
+}
+
+/**
+ * Masque en plan : la voûte céleste vue d'en haut, avec la rue dessinée selon son
+ * orientation, le ciel masqué par l'immeuble d'en face (gris) et la course du soleil.
+ */
+let planCache = { key: '', cells: '' };
+function planMask(cfg, sun, cx, cy, R) {
+  const proj = (alt, az) => {
+    const rr = (R * (90 - Math.max(alt, 0))) / 90;
+    const a = (az * Math.PI) / 180;
+    return [cx + rr * Math.sin(a), cy - rr * Math.cos(a)];
+  };
+  const key = [cfg.facadeAz, cfg.width, cfg.hOpp, cfg.floor, cx, cy, R].join('|');
+  if (planCache.key !== key) {
+    const step = 5;
+    let cells = '';
+    for (let i = 0; i < 90 / step; i++) {
+      for (let j = 0; j < 360 / step; j++) {
+        const alt = i * step + step / 2;
+        const az = j * step + step / 2;
+        const v = sunVectorLocal(alt, az, cfg.facadeAz);
+        let cls = '';
+        if (v.z <= 0) cls = 'pm-back';
+        else if (sunlitFraction(cfg, v) < 0.5) cls = 'pm-opp';
+        if (!cls) continue;
+        const z0 = j * step;
+        const z1 = z0 + step + 0.4;
+        const a0 = i * step;
+        const a1 = a0 + step;
+        const p = [proj(a0, z0), proj(a0, z1), proj(a1, z1), proj(a1, z0)];
+        cells += `<path d="M${p.map((q) => `${q[0].toFixed(1)},${q[1].toFixed(1)}`).join('L')}Z" class="${cls}"/>`;
+      }
+    }
+    planCache = { key, cells };
+  }
+  // Courses du soleil : solstices et jour choisi
+  const path = (doy) => {
+    const pts = [];
+    for (let m = 0; m <= 1440; m += 15) {
+      const p = sunPosition(parisLocalToUTC(YEAR, doy, m / 60));
+      if (p.altitude > 0) pts.push(proj(p.altitude, p.azimuth));
+    }
+    return pts.length > 1 ? `M${pts.map((q) => `${q[0].toFixed(1)},${q[1].toFixed(1)}`).join('L')}` : '';
+  };
+  // La rue : deux traits parallèles à la façade, de part et d'autre du centre
+  const fa = (cfg.facadeAz * Math.PI) / 180;
+  const ux = Math.cos(fa);
+  const uy = Math.sin(fa);
+  const nx = Math.sin(fa);
+  const ny = -Math.cos(fa);
+  const off = 10;
+  const street = [-1, 1].map((sg) => {
+    const ox = cx + nx * off * sg;
+    const oy = cy + ny * off * sg;
+    return `<line x1="${ox - ux * R}" y1="${oy - uy * R}" x2="${ox + ux * R}" y2="${oy + uy * R}" class="pm-street"/>`;
+  }).join('');
+  let sunDot = '';
+  if (sun.altitude > 0) {
+    const [x, y] = proj(sun.altitude, sun.azimuth);
+    sunDot = `<circle cx="${x}" cy="${y}" r="5" class="pm-sun"/>`;
+  }
+  const cards = [['N', 0], ['E', 90], ['S', 180], ['O', 270]].map(([t, az]) => {
+    const a = (az * Math.PI) / 180;
+    return `<text x="${cx + (R + 11) * Math.sin(a)}" y="${cy - (R + 11) * Math.cos(a) + 4}" text-anchor="middle" class="pm-card">${t}</text>`;
+  }).join('');
+  return `<g class="plan-mask">
+    <text x="${cx}" y="${cy - R - 26}" text-anchor="middle" class="st-side-title">Masque en plan</text>
+    <circle cx="${cx}" cy="${cy}" r="${R}" class="pm-disc"/>
+    ${planCache.cells}
+    <circle cx="${cx}" cy="${cy}" r="${R}" class="pm-ring"/>
+    <circle cx="${cx}" cy="${cy}" r="${R * 2 / 3}" class="pm-grid"/><circle cx="${cx}" cy="${cy}" r="${R / 3}" class="pm-grid"/>
+    ${street}
+    <path d="${path(172)}" class="pm-path-ref"/><path d="${path(355)}" class="pm-path-ref"/>
+    <path d="${path(state.doy)}" class="pm-path"/>
+    ${sunDot}
+    ${cards}
+  </g>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -424,35 +558,6 @@ function renderInsights() {
     .join('');
   $('insightSub').textContent = `Façade ${orientationName(state.facadeAz)}, rue de ${fmt(state.width, 1)} m, ${floorName(state.floor)}`;
 }
-
-// ---------------------------------------------------------------------------
-// Animation de la journée
-// ---------------------------------------------------------------------------
-
-let playing = false;
-let raf = 0;
-$('play').addEventListener('click', () => {
-  playing = !playing;
-  $('play').classList.toggle('is-playing', playing);
-  $('play').setAttribute('aria-label', playing ? 'Mettre en pause' : 'Animer la journée');
-  if (!playing) { cancelAnimationFrame(raf); updateInstant(true); return; }
-  const t = dayData.times;
-  if (t.set !== null && (state.hour >= t.set || state.hour < (t.rise ?? 0) - 0.5)) state.hour = Math.max(0, (t.rise ?? 5) - 0.5);
-  let last = performance.now();
-  const step = (now) => {
-    if (!playing) return;
-    const dt = Math.min(0.1, (now - last) / 1000);
-    last = now;
-    let h = state.hour + dt * 1.6;
-    if (h > (dayData.times.set ?? 22) + 0.5) h = Math.max(0, (dayData.times.rise ?? 5) - 0.5);
-    state.hour = h;
-    $('hour').value = h;
-    $('hourOut').textContent = `${fmtHour(h)} (${isSummerTime(YEAR, state.doy) ? 'UTC+2' : 'UTC+1'})`;
-    updateInstant();
-    raf = requestAnimationFrame(step);
-  };
-  raf = requestAnimationFrame(step);
-});
 
 // ---------------------------------------------------------------------------
 // Démarrage

@@ -82,7 +82,32 @@ export function evaluateStreet(cfg, sun, doy, floor = cfg.floor) {
   };
 }
 
-/** Journée : énergie (Wh/m²) et heures de soleil direct sur la fenêtre, avec et sans masque. */
+/**
+ * Plage horaire (heures légales) pendant laquelle le soleil est levé et devant la façade
+ * d'azimut facadeAz. Renvoie null si le soleil ne passe jamais devant ce jour-là.
+ * Une façade nord, en été, peut avoir deux plages (matin et soir) : on renvoie la liste.
+ */
+export function facingRanges(facadeAz, year, doy, stepMin = 5) {
+  const ranges = [];
+  let start = null;
+  for (let m = 0; m <= 1440; m += stepMin) {
+    const sun = sunPosition(parisLocalToUTC(year, doy, m / 60));
+    const s = sunVectorLocal(sun.altitude, sun.azimuth, facadeAz);
+    const facing = sun.altitude > 0 && s.z > 0;
+    if (facing && start === null) start = m / 60;
+    if (!facing && start !== null) {
+      ranges.push([start, m / 60]);
+      start = null;
+    }
+  }
+  if (start !== null) ranges.push([start, 24]);
+  return ranges;
+}
+
+/**
+ * Journée : énergie (Wh/m²) et heures de soleil direct sur la fenêtre, avec et sans masque.
+ * L'énergie est cumulée sur la plage où le soleil fait face à la façade (e0, e1).
+ */
 export function streetDay(cfg, year, doy, floor = cfg.floor, stepMin = 10) {
   let e0 = 0;
   let e1 = 0;
@@ -93,11 +118,11 @@ export function streetDay(cfg, year, doy, floor = cfg.floor, stepMin = 10) {
     const sun = sunPosition(parisLocalToUTC(year, doy, m / 60));
     const r = evaluateStreet(cfg, sun, doy, floor);
     const dt = stepMin / 60;
-    if (m < 1440) {
+    if (m < 1440 && r.direct0 > 1) {
       e0 += r.without * dt;
       e1 += r.withMask * dt;
-      if (r.direct0 > 1) h0 += dt;
-      if (r.direct0 > 1 && r.lit >= 0.5) h1 += dt;
+      h0 += dt;
+      if (r.lit >= 0.5) h1 += dt;
     }
     profileOut.push({ h: m / 60, gain: r.withMask, gain0: r.without, lit: r.lit });
   }
