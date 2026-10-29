@@ -429,15 +429,11 @@ function drawStreet(container, cfg, sun, r) {
   }
 
   // Colonne de droite : masque en plan et plage horaire de la façade
-  add(planMask(cfg, sun, 790, 168, 86));
-  const ranges = dayData?.ranges ?? [];
-  add(`<text x="790" y="300" text-anchor="middle" class="st-side-title">${L('Soleil face à la façade', 'Sun facing the façade')}</text>`);
-  add(`<text x="790" y="322" text-anchor="middle" class="st-side-value">${ranges.length ? ranges.map(([a, b]) => `${fmtHour(a)} → ${fmtHour(b)}`).join(' · ') : L('jamais ce jour-là', 'never on this day')}</text>`);
-  add(`<text x="790" y="342" text-anchor="middle" class="st-note">${dateLabel(state.doy)}</text>`);
-  add(`<g transform="translate(700,382)" class="st-legend">
+  add(planMask(cfg, sun, 790, 152, 78));
+  add(rangeMini(cfg, 696, 304, 188));
+  add(`<g transform="translate(700,490)" class="st-legend">
     <rect width="12" height="12" class="pm-sky"/><text x="18" y="10">${L('ciel visible', 'visible sky')}</text>
-    <rect y="20" width="12" height="12" class="pm-opp"/><text x="18" y="30">${L("masqué par l'immeuble d'en face", 'masked by the opposite building')}</text>
-    <rect y="40" width="12" height="12" class="pm-back"/><text x="18" y="50">${L('derrière la façade', 'behind the façade')}</text>
+    <rect y="18" width="12" height="12" class="pm-opp pm-key"/><text x="18" y="28">${L('masqué par les immeubles', 'masked by the buildings')}</text>
   </g>`);
 
   add(`<text x="20" y="${H - 14}" class="st-tag">${L('Schéma 2D interactif', 'Interactive 2D diagram')}</text>`);
@@ -454,60 +450,102 @@ function drawStreet(container, cfg, sun, r) {
 }
 
 /**
- * Masque en plan : la voûte céleste vue d'en haut, avec la rue dessinée selon son
- * orientation, le ciel masqué par l'immeuble d'en face (gris) et la course du soleil.
+ * Masque en plan : la voûte céleste vue d'en haut, nord en haut, à la hauteur de l'étage étudié.
+ * Deux points de vue :
+ * - « milieu de la rue » : chaque immeuble cache le ciel sous la ligne de son toit
+ *   (tan h = ΔH·|cos γ| / (L/2)) ; il reste une bande de ciel dans l'axe de la rue ;
+ * - « fenêtre » : notre immeuble cache toute la moitié du ciel derrière la façade, l'immeuble
+ *   d'en face le ciel sous tan h = ΔH·cos γ / L. C'est ce masque qui sert aux calculs.
+ * Par-dessus, l'abaque des courses du soleil (le 21 de chaque mois, heures solaires).
  */
-let planCache = { key: '', cells: '' };
+const GRID_DAYS = [355, 21, 52, 80, 111, 141, 172];
+let planView = 'rue';
+let planCache = { key: '', svg: '' };
+$('streetView').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-pmview]');
+  if (!t || t.dataset.pmview === planView) return;
+  planView = t.dataset.pmview;
+  updateInstant();
+});
 function planMask(cfg, sun, cx, cy, R) {
   const proj = (alt, az) => {
     const rr = (R * (90 - Math.max(alt, 0))) / 90;
     const a = (az * Math.PI) / 180;
     return [cx + rr * Math.sin(a), cy - rr * Math.cos(a)];
   };
-  const key = [cfg.facadeAz, cfg.width, cfg.hOpp, cfg.floor, cx, cy, R].join('|');
+  const d = (pts) => `M${pts.map((q) => `${q[0].toFixed(1)},${q[1].toFixed(1)}`).join('L')}`;
+  const key = [planView, cfg.facadeAz, cfg.width, cfg.hOpp, cfg.hOwn, cfg.floor, cx, cy, R].join('|');
   if (planCache.key !== key) {
-    const step = 5;
-    let cells = '';
-    for (let i = 0; i < 90 / step; i++) {
-      for (let j = 0; j < 360 / step; j++) {
-        const alt = i * step + step / 2;
-        const az = j * step + step / 2;
-        const v = sunVectorLocal(alt, az, cfg.facadeAz);
-        let cls = '';
-        if (v.z <= 0) cls = 'pm-back';
-        else if (sunlitFraction(cfg, v) < 0.5) cls = 'pm-opp';
-        if (!cls) continue;
-        const z0 = j * step;
-        const z1 = z0 + step + 0.4;
-        const a0 = i * step;
-        const a1 = a0 + step;
-        const p = [proj(a0, z0), proj(a0, z1), proj(a1, z1), proj(a1, z0)];
-        cells += `<path d="M${p.map((q) => `${q[0].toFixed(1)},${q[1].toFixed(1)}`).join('L')}Z" class="${cls}"/>`;
+    const fa = cfg.facadeAz;
+    const zc = windowOf(cfg.floor).zc;
+    const mid = planView === 'rue';
+    const dist = mid ? cfg.width / 2 : cfg.width;
+    const deg = (x) => (x * 180) / Math.PI;
+    // Un immeuble : du bord de l'horizon jusqu'à la ligne de son toit, sur un demi-tour
+    // centré sur la direction g0 (0 : en face, 180 : notre côté)
+    const side = (g0, dh) => {
+      const pts = [];
+      for (let g = g0 - 90; g <= g0 + 90; g += 2) pts.push(proj(0, fa + g));
+      for (let g = g0 + 90; g >= g0 - 90; g -= 2) {
+        const c = Math.max(0, Math.cos(((g - g0) * Math.PI) / 180));
+        pts.push(proj(deg(Math.atan((dh * c) / dist)), fa + g));
       }
+      return `<path d="${d(pts)}Z" class="pm-opp"/>`;
+    };
+    // Libellé dans la zone masquée, en deux lignes. Quand la zone est sur un côté du disque,
+    // il descend vers le bas de celle-ci, là où elle reste large, loin des points cardinaux.
+    const label = (txt, g0, dh) => {
+      const a = deg(Math.atan(dh / dist));
+      if (a < 14) return '';
+      const s = Math.sin(((fa + g0) * Math.PI) / 180);
+      let g = g0;
+      let alt = Math.max(a / 2, 16);
+      if (Math.abs(s) > 0.5) {
+        const ys = [g0 - 50, g0 + 50].map((gg) => proj(0, fa + gg)[1]);
+        g = ys[0] > ys[1] ? g0 - 50 : g0 + 50;
+        alt = deg(Math.atan((dh * Math.cos((50 * Math.PI) / 180)) / dist)) / 2;
+      }
+      const [x, y] = proj(alt, fa + g);
+      const lines = txt.split(' ');
+      const y0 = y + 4 - (lines.length - 1) * 5.5;
+      return `<text x="${x.toFixed(1)}" y="${y0.toFixed(1)}" text-anchor="middle" class="pm-region">${lines.map((t, i) => `<tspan x="${x.toFixed(1)}" dy="${i ? 11 : 0}">${t}</tspan>`).join('')}</text>`;
+    };
+    const dOpp = Math.max(0, cfg.hOpp - zc);
+    const dOwn = Math.max(0, cfg.hOwn - zc);
+    let masks = '';
+    if (dOpp > 0) masks += side(0, dOpp);
+    if (mid) {
+      if (dOwn > 0) masks += side(180, dOwn);
+    } else {
+      const back = [];
+      for (let g = 90; g <= 270; g += 3) back.push(proj(0, fa + g));
+      masks += `<path d="${d(back)}Z" class="pm-opp"/>`;
     }
-    planCache = { key, cells };
+    const labels = label(L('en face', 'opposite'), 0, dOpp)
+      + (mid ? label(L('notre immeuble', 'our building'), 180, dOwn) : label(L('notre immeuble', 'our building'), 180, 1e6));
+    // Abaque : courses du soleil et lignes horaires, en temps solaire moyen
+    const at = (doy, h) => sunPosition(Date.UTC(YEAR, 0, doy) + (h - 2.35 / 15) * 3600e3);
+    const arcs = GRID_DAYS.map((doy) => {
+      const pts = [];
+      for (let h = 3; h <= 21; h += 0.25) {
+        const p = at(doy, h);
+        if (p.altitude > 0) pts.push(proj(p.altitude, p.azimuth));
+      }
+      return pts.length > 1 ? `<path d="${d(pts)}" class="pm-arc"/>` : '';
+    }).join('');
+    const hours = [];
+    for (let h = 4; h <= 20; h++) {
+      const pts = GRID_DAYS.map((doy) => at(doy, h)).filter((p) => p.altitude > 0).map((p) => proj(p.altitude, p.azimuth));
+      if (pts.length > 1) hours.push(`<path d="${d(pts)}" class="pm-hour"/>`);
+    }
+    planCache = { key, svg: `${masks}${arcs}${hours.join('')}${labels}` };
   }
-  // Courses du soleil : solstices et jour choisi
-  const path = (doy) => {
-    const pts = [];
-    for (let m = 0; m <= 1440; m += 15) {
-      const p = sunPosition(parisLocalToUTC(YEAR, doy, m / 60));
-      if (p.altitude > 0) pts.push(proj(p.altitude, p.azimuth));
-    }
-    return pts.length > 1 ? `M${pts.map((q) => `${q[0].toFixed(1)},${q[1].toFixed(1)}`).join('L')}` : '';
-  };
-  // La rue : deux traits parallèles à la façade, de part et d'autre du centre
-  const fa = (cfg.facadeAz * Math.PI) / 180;
-  const ux = Math.cos(fa);
-  const uy = Math.sin(fa);
-  const nx = Math.sin(fa);
-  const ny = -Math.cos(fa);
-  const off = 10;
-  const street = [-1, 1].map((sg) => {
-    const ox = cx + nx * off * sg;
-    const oy = cy + ny * off * sg;
-    return `<line x1="${ox - ux * R}" y1="${oy - uy * R}" x2="${ox + ux * R}" y2="${oy + uy * R}" class="pm-street"/>`;
-  }).join('');
+  // Course du jour choisi, en heure légale
+  const today = [];
+  for (let m = 0; m <= 1440; m += 15) {
+    const p = sunPosition(parisLocalToUTC(YEAR, state.doy, m / 60));
+    if (p.altitude > 0) today.push(proj(p.altitude, p.azimuth));
+  }
   let sunDot = '';
   if (sun.altitude > 0) {
     const [x, y] = proj(sun.altitude, sun.azimuth);
@@ -518,16 +556,51 @@ function planMask(cfg, sun, cx, cy, R) {
     return `<text x="${cx + (R + 11) * Math.sin(a)}" y="${cy - (R + 11) * Math.cos(a) + 4}" text-anchor="middle" class="pm-card">${t}</text>`;
   }).join('');
   return `<g class="plan-mask">
-    <text x="${cx}" y="${cy - R - 26}" text-anchor="middle" class="st-side-title">${L('Masque en plan', 'Plan mask')}</text>
+    <text x="${cx}" y="${cy - R - 24}" text-anchor="middle" class="st-side-title">${L('Masque en plan', 'Plan mask')}</text>
     <circle cx="${cx}" cy="${cy}" r="${R}" class="pm-disc"/>
-    ${planCache.cells}
+    ${planCache.svg}
+    ${today.length > 1 ? `<path d="${d(today)}" class="pm-path"/>` : ''}
     <circle cx="${cx}" cy="${cy}" r="${R}" class="pm-ring"/>
-    <circle cx="${cx}" cy="${cy}" r="${R * 2 / 3}" class="pm-grid"/><circle cx="${cx}" cy="${cy}" r="${R / 3}" class="pm-grid"/>
-    ${street}
-    <path d="${path(172)}" class="pm-path-ref"/><path d="${path(355)}" class="pm-path-ref"/>
-    <path d="${path(state.doy)}" class="pm-path"/>
     ${sunDot}
     ${cards}
+    ${[['fenetre', L('Fenêtre', 'Window'), 64], ['rue', L('Milieu de la rue', 'Street centre'), 104]].reduce((acc, [v, t, w]) => {
+      const x0 = acc.x;
+      acc.x += w;
+      acc.html += `<g class="pm-tab${v === planView ? ' is-on' : ''}" data-pmview="${v}" role="button" tabindex="0"><rect x="${x0}" y="${cy + R + 20}" width="${w}" height="18"/><text x="${x0 + w / 2}" y="${cy + R + 33}" text-anchor="middle">${t}</text></g>`;
+      return acc;
+    }, { x: cx - 84, html: '' }).html}
+  </g>`;
+}
+
+/** Miniature du graphe des plages horaires par orientation, pour la colonne de droite. */
+let miniCache = { key: '', rows: [] };
+function rangeMini(cfg, x, y, w) {
+  if (miniCache.key !== String(state.doy)) {
+    miniCache = { key: String(state.doy), rows: ORIENTS.map(([label, az]) => [label, az, facingRanges(az, YEAR, state.doy, 10)]) };
+  }
+  const [h0, h1] = RANGE_AXIS;
+  const tx = x + 26;
+  const tw = w - 30;
+  const pos = (h) => tx + ((Math.max(h0, Math.min(h1, h)) - h0) / (h1 - h0)) * tw;
+  const cur = ((Math.round(cfg.facadeAz / 45) * 45) % 360 + 360) % 360;
+  const top = y + 30;
+  const rh = 14;
+  const rows = miniCache.rows.map(([label, az, rs], i) => {
+    const yy = top + i * rh;
+    const c = az === cur ? ' is-current' : '';
+    const bars = rs.map(([a, b]) => `<rect x="${pos(a).toFixed(1)}" y="${yy - 4}" width="${(pos(b) - pos(a)).toFixed(1)}" height="7"/>`).join('');
+    return `<g class="rm-row${c}"><text x="${x}" y="${yy + 3}">${label}</text><line x1="${tx}" y1="${yy}" x2="${tx + tw}" y2="${yy}" class="rm-base"/>${bars}</g>`;
+  }).join('');
+  const bottom = top + 7 * rh + 8;
+  const ticks = [6, 12, 18].map((h) => `<text x="${pos(h)}" y="${bottom + 12}" text-anchor="middle">${L(`${h} h`, `${h}:00`)}</text>`).join('');
+  const nx = pos(state.hour);
+  return `<g class="range-mini">
+    <text x="${x + w / 2}" y="${y}" text-anchor="middle" class="st-side-title">${L('Plage horaire', 'Time range')}</text>
+    <text x="${x + w / 2}" y="${y + 15}" text-anchor="middle" class="st-side-title">${L('Soleil face à la façade', 'Sun facing the façade')}</text>
+    ${rows}
+    <line x1="${nx}" y1="${top - 9}" x2="${nx}" y2="${bottom}" class="rm-now"/>
+    <g class="rm-ticks">${ticks}</g>
+    <text x="${x + w / 2}" y="${bottom + 30}" text-anchor="middle" class="st-note">${dateLabel(state.doy)}</text>
   </g>`;
 }
 
