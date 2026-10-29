@@ -448,6 +448,7 @@ let maskOn = false; // désactivée par défaut : le dessin au trait reste lisib
 try { maskOn = localStorage.getItem('mask3d') === 'on'; } catch { /* stockage indisponible */ }
 function applyMaskToggle() {
   $('maskToggle').setAttribute('aria-pressed', String(maskOn));
+  $('maskLegend3d').hidden = !(maskOn && state.view !== 'int');
   if (scene && maskData) scene.setMask(maskData.dome, state.facadeAz, maskOn);
 }
 $('maskToggle').addEventListener('click', () => {
@@ -457,6 +458,7 @@ $('maskToggle').addEventListener('click', () => {
 });
 applyMaskToggle();
 $('maskLegend').innerHTML = maskLegendHTML();
+$('maskLegend3dBody').innerHTML = maskLegendHTML();
 
 let lastSunPath = 0;
 function updateInstant(force = false) {
@@ -500,7 +502,7 @@ function updateInstant(force = false) {
   if (force || !playing || now - lastSunPath > 200) {
     lastSunPath = now;
     renderSunPath($('sunPath'), { year: YEAR, doy: state.doy, hour: state.hour, sun, facadeAz: state.facadeAz, mask: maskData?.flat });
-    if (liveOn) renderSunPath($('liveSun'), { year: YEAR, doy: state.doy, hour: state.hour, sun, facadeAz: state.facadeAz, mask: maskData?.flat });
+    if (liveOn) renderSunPath($('liveSun'), { year: YEAR, doy: state.doy, hour: state.hour, sun, facadeAz: state.facadeAz });
     const t = dayData ? dayData.times : sunTimes(YEAR, state.doy);
     $('sunFacts').innerHTML = `
       <div><span>Lever</span><b>${t.rise === null ? '—' : fmtHour(t.rise)}</b></div>
@@ -605,6 +607,7 @@ function protectionTip(oc) {
 // ---------------------------------------------------------------------------
 
 function syncControls() {
+  if ($('maskLegend3d')) $('maskLegend3d').hidden = !(maskOn && state.view !== 'int');
   for (const [id, f] of Object.entries(sliders)) {
     $(id).value = state[id];
     $(`${id}Out`).textContent = f(state[id]);

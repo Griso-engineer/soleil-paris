@@ -716,12 +716,12 @@ export class SolarScene {
     geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     geo.setIndex(idx);
     const dome = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-      vertexColors: true, side: THREE.FrontSide, transparent: true, opacity: 0.92, depthWrite: false,
+      vertexColors: true, side: THREE.FrontSide, transparent: true, opacity: 0.8, depthWrite: false,
     }));
     this.maskDome.add(dome);
     // Moitié avant (côté caméra) en transparence, pour garder le bâtiment lisible
     const front = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-      vertexColors: true, side: THREE.BackSide, transparent: true, opacity: 0.5, depthWrite: false,
+      vertexColors: true, side: THREE.BackSide, transparent: true, opacity: 0.38, depthWrite: false,
     }));
     this.maskDome.add(front);
     // Méridiens et parallèles fins, comme sur une sphère de masque

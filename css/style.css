@@ -578,3 +578,8 @@ html.printing {
 .mask-legend i { flex: 1; height: 8px; display: block; }
 .mask-caption { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
 .sp-mask path { stroke: none; }
+.mask-legend-3d { position: absolute; right: 14px; bottom: 46px; z-index: 2; width: 210px; pointer-events: none; }
+.mask-legend-3d[hidden] { display: none; }
+.mask-legend-3d .mask-legend { margin-top: 2px; }
+.mask-legend-3d .mask-caption { font-size: 10.5px; margin-top: 3px; line-height: 1.35; }
+@media (max-width: 680px) { .mask-legend-3d { display: none !important; } }
