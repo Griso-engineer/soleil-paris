@@ -8,6 +8,7 @@ import {
 } from './street.js';
 import { renderSunPath, renderMonthChart, maskLegendHTML, fmtHour, fmt, MONTHS } from './charts.js';
 import { sunVectorLocal } from './shading.js';
+import { L, LANG, LOCALE, withLang } from './i18n.js';
 
 const YEAR = new Date().getFullYear();
 const $ = (id) => document.getElementById(id);
@@ -27,13 +28,23 @@ const state = { ...defaultStreet(), doy: 80, hour: 13 };
   state.doy = Math.max(1, Math.min(365, Math.round(state.doy)));
 }
 
-const ORIENTS = [['N', 0], ['NE', 45], ['E', 90], ['SE', 135], ['S', 180], ['SO', 225], ['O', 270], ['NO', 315]];
+const ORIENTS = [['N', 0], ['NE', 45], ['E', 90], ['SE', 135], ['S', 180], [L('SO', 'SW'), 225], [L('O', 'W'), 270], [L('NO', 'NW'), 315]];
 
 function floorName(n) {
+  if (LANG === 'en') {
+    if (n === 0) return 'ground floor';
+    const suf = n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th';
+    return `${n}${suf} floor`;
+  }
   if (n === 0) return 'rez-de-chaussée';
   return n === 1 ? '1er étage' : `${n}e étage`;
 }
 function floorShort(n) {
+  if (LANG === 'en') {
+    if (n === 0) return 'GF';
+    const suf = n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th';
+    return `${n}${suf}`;
+  }
   if (n === 0) return 'RDC';
   return n === 1 ? '1er' : `${n}e`;
 }
@@ -41,11 +52,13 @@ function maxFloor() {
   return Math.max(0, Math.floor(state.hOwn / FLOOR) - 1);
 }
 function orientationName(az) {
-  const names = ['nord', 'nord-est', 'est', 'sud-est', 'sud', 'sud-ouest', 'ouest', 'nord-ouest'];
+  const names = LANG === 'en'
+    ? ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west']
+    : ['nord', 'nord-est', 'est', 'sud-est', 'sud', 'sud-ouest', 'ouest', 'nord-ouest'];
   return names[Math.round((((az % 360) + 360) % 360) / 45) % 8];
 }
 function dateLabel(doy) {
-  return dayOfYearToDate(YEAR, doy).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', timeZone: 'UTC' });
+  return dayOfYearToDate(YEAR, doy).toLocaleDateString(LOCALE, { day: 'numeric', month: 'long', timeZone: 'UTC' });
 }
 function durationLabel(h) {
   if (h < 0.05) return '0 h';
@@ -68,7 +81,7 @@ for (const [label, az] of ORIENTS) {
   b.type = 'button';
   b.textContent = label;
   b.dataset.az = az;
-  b.setAttribute('aria-label', `Façade orientée ${label} (${az}°)`);
+  b.setAttribute('aria-label', L(`Façade orientée ${label} (${az}°)`, `Façade facing ${label} (${az}°)`));
   const a = (az * Math.PI) / 180;
   b.style.left = `${58 + 42 * Math.sin(a)}px`;
   b.style.top = `${58 - 42 * Math.cos(a)}px`;
@@ -92,7 +105,7 @@ $('presets').addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (b) set({ doy: parseInt(b.dataset.doy, 10) });
 });
-$('maskLegend').innerHTML = maskLegendHTML().replace('Part du vitrage au soleil', 'Part de la fenêtre au soleil');
+$('maskLegend').innerHTML = maskLegendHTML().replace('Part du vitrage au soleil', 'Part de la fenêtre au soleil').replace('Share of the glazing in direct sun', 'Share of the window in direct sun');
 
 // ---------------------------------------------------------------------------
 // Mise à jour
@@ -113,6 +126,7 @@ function set(patch) {
   updateInstant();
   const p = new URLSearchParams();
   for (const k of Object.keys(state)) p.set(k, String(state[k]));
+  withLang(p);
   history.replaceState(null, '', `?${p.toString()}${location.hash}`);
 }
 
@@ -145,21 +159,21 @@ function recomputeDay() {
   const alpha = obstructionAngle(state, zc);
   dayData.ranges = facingRanges(state.facadeAz, YEAR, state.doy);
   kpis($('kpisDay'), [
-    { hero: true, label: 'Soleil direct sur la fenêtre', value: durationLabel(dayData.h1), note: `sur <b>${durationLabel(dayData.h0)}</b> de soleil face à la façade` },
-    { label: 'Énergie solaire reçue', value: fmt(dayData.e1), unit: 'Wh/m²', note: `façade dégagée : <b>${fmt(dayData.e0)} Wh/m²</b>` },
-    { label: 'Énergie retirée par le vis-à-vis', value: dayData.e0 > 1 ? fmt((1 - dayData.e1 / dayData.e0) * 100) : '—', unit: '%', meter: dayData.e0 > 1 ? 1 - dayData.e1 / dayData.e0 : 0 },
-    { label: "Angle d'obstruction", value: alpha > 0 ? fmt(alpha) : '0', unit: '°', note: 'vu du milieu de la fenêtre' },
-    { label: 'Ciel visible', value: fmt(skyView(state, zc) * 100), unit: '%', note: 'par rapport à une façade dégagée' },
-    { label: 'Rapport H / L', value: fmt(state.hOpp / state.width, 2), note: 'hauteur en face / largeur de rue' },
+    { hero: true, label: L('Soleil direct sur la fenêtre', 'Direct sun on the window'), value: durationLabel(dayData.h1), note: L(`sur <b>${durationLabel(dayData.h0)}</b> de soleil face à la façade`, `out of <b>${durationLabel(dayData.h0)}</b> of sun facing the façade`) },
+    { label: L('Énergie solaire reçue', 'Solar energy received'), value: fmt(dayData.e1), unit: 'Wh/m²', note: L(`façade dégagée : <b>${fmt(dayData.e0)} Wh/m²</b>`, `unobstructed façade: <b>${fmt(dayData.e0)} Wh/m²</b>`) },
+    { label: L('Énergie retirée par le vis-à-vis', 'Energy removed by the opposite building'), value: dayData.e0 > 1 ? fmt((1 - dayData.e1 / dayData.e0) * 100) : '—', unit: '%', meter: dayData.e0 > 1 ? 1 - dayData.e1 / dayData.e0 : 0 },
+    { label: L("Angle d'obstruction", 'Obstruction angle'), value: alpha > 0 ? fmt(alpha) : '0', unit: '°', note: L('vu du milieu de la fenêtre', 'seen from the middle of the window') },
+    { label: L('Ciel visible', 'Visible sky'), value: fmt(skyView(state, zc) * 100), unit: '%', note: L('par rapport à une façade dégagée', 'relative to an unobstructed façade') },
+    { label: L('Rapport H / L', 'H / W ratio'), value: fmt(state.hOpp / state.width, 2), note: L('hauteur en face / largeur de rue', 'opposite height / street width') },
   ]);
   $('kpiDayLabel').textContent = dayData.ranges.length
-    ? `${dateLabel(state.doy)}, ${rangesLabel(dayData.ranges)}, ciel clair, ${floorName(state.floor)}`
-    : `${dateLabel(state.doy)} : le soleil ne passe pas devant cette façade`;
+    ? L(`${dateLabel(state.doy)}, ${rangesLabel(dayData.ranges)}, ciel clair, ${floorName(state.floor)}`, `${dateLabel(state.doy)}, ${rangesLabel(dayData.ranges)}, clear sky, ${floorName(state.floor)}`)
+    : L(`${dateLabel(state.doy)} : le soleil ne passe pas devant cette façade`, `${dateLabel(state.doy)}: the sun never faces this façade`);
   renderRanges();
 }
 
 function rangesLabel(ranges) {
-  return ranges.map(([a, b]) => `de ${fmtHour(a)} à ${fmtHour(b)}`).join(' et ');
+  return ranges.map(([a, b]) => L(`de ${fmtHour(a)} à ${fmtHour(b)}`, `from ${fmtHour(a)} to ${fmtHour(b)}`)).join(L(' et ', ' and '));
 }
 
 // Plages horaires où le soleil fait face à chaque orientation, pour le jour choisi.
@@ -185,14 +199,17 @@ function renderRanges() {
       <span class="rg-txt">${txt}</span>
     </div>`;
   }).join('');
-  const ticks = [6, 9, 12, 15, 18, 21].map((h) => `<span style="left:${pos(h)}%">${h} h</span>`).join('');
+  const ticks = [6, 9, 12, 15, 18, 21].map((h) => `<span style="left:${pos(h)}%">${L(`${h} h`, `${h}:00`)}</span>`).join('');
   $('ranges').innerHTML = `<div class="ranges">
     ${rows}
     <div class="rg-row rg-axis"><span></span><span class="rg-track rg-ticks">${ticks}</span><span></span></div>
     <b class="rg-now" style="left:${nowLeft(state.hour)}"></b>
   </div>`;
   const exact = state.facadeAz % 45 === 0;
-  $('rangesSub').textContent = `${dateLabel(state.doy)}. Barres : heures pendant lesquelles le soleil est levé et devant une façade de cette orientation. En noir, l'orientation la plus proche de la façade étudiée${exact ? '' : ` (${state.facadeAz}°)`}.`;
+  $('rangesSub').textContent = L(
+    `${dateLabel(state.doy)}. Barres : heures pendant lesquelles le soleil est levé et devant une façade de cette orientation. En noir, l'orientation la plus proche de la façade étudiée${exact ? '' : ` (${state.facadeAz}°)`}.`,
+    `${dateLabel(state.doy)}. Bars: hours when the sun is up and in front of a façade with this orientation. In black, the orientation closest to the studied façade${exact ? '' : ` (${state.facadeAz}°)`}.`
+  );
 }
 
 let slowTimer = null;
@@ -212,9 +229,9 @@ function recomputeSlow() {
   }
   const curMonth = dayOfYearToDate(YEAR, state.doy).getUTCMonth();
   renderMonthChart($('monthChart'), {
-    data, currentMonth: curMonth, unit: 'h', axisLabel: 'heures / jour', yMax: 16,
-    labels: ['Façade dégagée', "Avec l'immeuble d'en face"],
-    note: (d) => `Énergie reçue : ${fmt(d.e1)} Wh/m² (dégagée : ${fmt(d.e0)})`,
+    data, currentMonth: curMonth, unit: 'h', axisLabel: L('heures / jour', 'hours / day'), yMax: 16,
+    labels: [L('Façade dégagée', 'Unobstructed façade'), L("Avec l'immeuble d'en face", 'With the opposite building')],
+    note: (d) => L(`Énergie reçue : ${fmt(d.e1)} Wh/m² (dégagée : ${fmt(d.e0)})`, `Energy received: ${fmt(d.e1)} Wh/m² (unobstructed: ${fmt(d.e0)})`),
   });
   renderFloors();
   renderInsights(data);
@@ -236,10 +253,13 @@ function renderFloors() {
       <span class="floor-h">${durationLabel(r.h1)}</span>
       <span class="floor-sky">${fmt(r.sv * 100)} %</span>
     </button>`).join('')}
-    <div class="floor-row floor-head" aria-hidden="true"><span></span><span>Soleil direct sur la fenêtre</span><span>avec</span><span>ciel</span></div>
+    <div class="floor-row floor-head" aria-hidden="true"><span></span><span>${L('Soleil direct sur la fenêtre', 'Direct sun on the window')}</span><span>${L('avec', 'with')}</span><span>${L('ciel', 'sky')}</span></div>
   </div>`;
   for (const b of $('floors').querySelectorAll('button')) b.addEventListener('click', () => set({ floor: +b.dataset.n }));
-  $('floorsSub').textContent = `${dateLabel(state.doy)}, ciel clair. Barre claire : façade dégagée ; barre foncée : avec l'immeuble d'en face. Cliquer un étage pour l'observer.`;
+  $('floorsSub').textContent = L(
+    `${dateLabel(state.doy)}, ciel clair. Barre claire : façade dégagée ; barre foncée : avec l'immeuble d'en face. Cliquer un étage pour l'observer.`,
+    `${dateLabel(state.doy)}, clear sky. Light bar: unobstructed façade; dark bar: with the opposite building. Click a floor to study it.`
+  );
 }
 
 function kpis(el, items) {
@@ -264,14 +284,14 @@ function updateInstant(force = false) {
 
   const hs = r.prof ? shadowHeight(state, r.prof) : null;
   let shadowNote;
-  if (sun.altitude <= 0) shadowNote = 'soleil couché';
-  else if (!r.prof) shadowNote = 'soleil derrière la façade';
-  else if (hs <= 0) shadowNote = "pas d'ombre sur la façade";
-  else shadowNote = `ombre portée jusqu'à <b>${fmt(hs, 1)} m</b>`;
+  if (sun.altitude <= 0) shadowNote = L('soleil couché', 'sun has set');
+  else if (!r.prof) shadowNote = L('soleil derrière la façade', 'sun behind the façade');
+  else if (hs <= 0) shadowNote = L("pas d'ombre sur la façade", 'no shadow on the façade');
+  else shadowNote = L(`ombre portée jusqu'à <b>${fmt(hs, 1)} m</b>`, `shadow up to <b>${fmt(hs, 1)} m</b>`);
   kpis($('kpisNow'), [
-    { hero: true, label: 'Fenêtre au soleil', value: fmt(r.lit * 100), unit: '%', note: shadowNote },
-    { label: 'Rayonnement reçu', value: fmt(r.withMask), unit: 'W/m²', note: `façade dégagée : <b>${fmt(r.without)} W/m²</b>` },
-    { label: 'Angle de profil du soleil', value: r.prof ? fmt(r.prof.deg) : '—', unit: r.prof ? '°' : '', note: `à comparer à l'angle d'obstruction : <b>${fmt(Math.max(0, obstructionAngle(state, windowOf(state.floor).zc)))}°</b>` },
+    { hero: true, label: L('Fenêtre au soleil', 'Window in sun'), value: fmt(r.lit * 100), unit: '%', note: shadowNote },
+    { label: L('Rayonnement reçu', 'Radiation received'), value: fmt(r.withMask), unit: 'W/m²', note: L(`façade dégagée : <b>${fmt(r.without)} W/m²</b>`, `unobstructed façade: <b>${fmt(r.without)} W/m²</b>`) },
+    { label: L('Angle de profil du soleil', 'Sun profile angle'), value: r.prof ? fmt(r.prof.deg) : '—', unit: r.prof ? '°' : '', note: L(`à comparer à l'angle d'obstruction : <b>${fmt(Math.max(0, obstructionAngle(state, windowOf(state.floor).zc)))}°</b>`, `compare with the obstruction angle: <b>${fmt(Math.max(0, obstructionAngle(state, windowOf(state.floor).zc)))}°</b>`) },
   ]);
   $('kpiNowLabel').textContent = `${dateLabel(state.doy)}, ${fmtHour(state.hour)}, ${floorName(state.floor)}`;
   const now0 = document.querySelector('#ranges .rg-now');
@@ -346,8 +366,8 @@ function drawStreet(container, cfg, sun, r) {
     add(`<rect x="${X(x0)}" y="${Y(h)}" width="${X(x1) - X(x0)}" height="${Y(0) - Y(h)}" fill="url(#st-hatch)" class="st-building"/>`);
     if (h > 2) add(`<text x="${(X(x0) + X(x1)) / 2}" y="${Y(h) - 8}" text-anchor="middle" class="st-label">${label}</text>`);
   };
-  building(-depth, 0, cfg.hOwn, 'notre immeuble');
-  if (cfg.hOpp > 0) building(cfg.width, cfg.width + depth, cfg.hOpp, 'en face');
+  building(-depth, 0, cfg.hOwn, L('notre immeuble', 'our building'));
+  if (cfg.hOpp > 0) building(cfg.width, cfg.width + depth, cfg.hOpp, L('en face', 'opposite'));
 
   // Fenêtres de notre façade (blanches) ; celle étudiée se remplit selon sa part au soleil
   for (let n = 0; n <= maxFloor(); n++) {
@@ -393,7 +413,7 @@ function drawStreet(container, cfg, sun, r) {
     return `<line x1="${Math.cos(a) * 17}" y1="${Math.sin(a) * 17}" x2="${Math.cos(a) * 24}" y2="${Math.sin(a) * 24}"/>`;
   }).join('');
   add(`<g transform="translate(${sx.toFixed(1)},${sy.toFixed(1)})" class="st-sun${relevant ? '' : ' st-sun-off'}"><circle r="12"/>${rays}</g>`);
-  const sunTxt = relevant ? `φ ${fmt(phi)}°` : sun.altitude <= 0 ? "soleil couché" : "derrière la façade";
+  const sunTxt = relevant ? `φ ${fmt(phi)}°` : sun.altitude <= 0 ? L('soleil couché', 'sun has set') : L('derrière la façade', 'behind the façade');
   if (phi > 90) add(`<text x="${sx}" y="${sy + 40}" text-anchor="middle" class="st-angle">${sunTxt}</text>`);
   else add(`<text x="${sx - 30}" y="${sy + 4}" text-anchor="end" class="st-angle">${sunTxt}</text>`);
 
@@ -411,19 +431,19 @@ function drawStreet(container, cfg, sun, r) {
   // Colonne de droite : masque en plan et plage horaire de la façade
   add(planMask(cfg, sun, 790, 168, 86));
   const ranges = dayData?.ranges ?? [];
-  add(`<text x="790" y="300" text-anchor="middle" class="st-side-title">Soleil face à la façade</text>`);
-  add(`<text x="790" y="322" text-anchor="middle" class="st-side-value">${ranges.length ? ranges.map(([a, b]) => `${fmtHour(a)} → ${fmtHour(b)}`).join(' · ') : 'jamais ce jour-là'}</text>`);
+  add(`<text x="790" y="300" text-anchor="middle" class="st-side-title">${L('Soleil face à la façade', 'Sun facing the façade')}</text>`);
+  add(`<text x="790" y="322" text-anchor="middle" class="st-side-value">${ranges.length ? ranges.map(([a, b]) => `${fmtHour(a)} → ${fmtHour(b)}`).join(' · ') : L('jamais ce jour-là', 'never on this day')}</text>`);
   add(`<text x="790" y="342" text-anchor="middle" class="st-note">${dateLabel(state.doy)}</text>`);
   add(`<g transform="translate(700,382)" class="st-legend">
-    <rect width="12" height="12" class="pm-sky"/><text x="18" y="10">ciel visible</text>
-    <rect y="20" width="12" height="12" class="pm-opp"/><text x="18" y="30">masqué par l'immeuble d'en face</text>
-    <rect y="40" width="12" height="12" class="pm-back"/><text x="18" y="50">derrière la façade</text>
+    <rect width="12" height="12" class="pm-sky"/><text x="18" y="10">${L('ciel visible', 'visible sky')}</text>
+    <rect y="20" width="12" height="12" class="pm-opp"/><text x="18" y="30">${L("masqué par l'immeuble d'en face", 'masked by the opposite building')}</text>
+    <rect y="40" width="12" height="12" class="pm-back"/><text x="18" y="50">${L('derrière la façade', 'behind the façade')}</text>
   </g>`);
 
-  add(`<text x="20" y="${H - 14}" class="st-tag">Schéma 2D interactif</text>`);
-  add(`<text x="20" y="28" class="st-note">Coupe perpendiculaire à la façade ${orientationName(cfg.facadeAz)}</text>`);
+  add(`<text x="20" y="${H - 14}" class="st-tag">${L('Schéma 2D interactif', 'Interactive 2D diagram')}</text>`);
+  add(`<text x="20" y="28" class="st-note">${L(`Coupe perpendiculaire à la façade ${orientationName(cfg.facadeAz)}`, `Section perpendicular to the ${orientationName(cfg.facadeAz)}-facing façade`)}</text>`);
 
-  container.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="street-svg" role="img" aria-label="Coupe de la rue et masque en plan">
+  container.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="street-svg" role="img" aria-label="${L('Coupe de la rue et masque en plan', 'Street section and plan mask')}">
     <defs>
       <pattern id="st-hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="7" class="st-hatch-line"/></pattern>
       <pattern id="st-dots" width="5" height="5" patternUnits="userSpaceOnUse"><circle cx="1.5" cy="1.5" r="0.7" class="st-dot"/><circle cx="4" cy="3.8" r="0.6" class="st-dot"/></pattern>
@@ -493,12 +513,12 @@ function planMask(cfg, sun, cx, cy, R) {
     const [x, y] = proj(sun.altitude, sun.azimuth);
     sunDot = `<circle cx="${x}" cy="${y}" r="5" class="pm-sun"/>`;
   }
-  const cards = [['N', 0], ['E', 90], ['S', 180], ['O', 270]].map(([t, az]) => {
+  const cards = [['N', 0], ['E', 90], ['S', 180], [L('O', 'W'), 270]].map(([t, az]) => {
     const a = (az * Math.PI) / 180;
     return `<text x="${cx + (R + 11) * Math.sin(a)}" y="${cy - (R + 11) * Math.cos(a) + 4}" text-anchor="middle" class="pm-card">${t}</text>`;
   }).join('');
   return `<g class="plan-mask">
-    <text x="${cx}" y="${cy - R - 26}" text-anchor="middle" class="st-side-title">Masque en plan</text>
+    <text x="${cx}" y="${cy - R - 26}" text-anchor="middle" class="st-side-title">${L('Masque en plan', 'Plan mask')}</text>
     <circle cx="${cx}" cy="${cy}" r="${R}" class="pm-disc"/>
     ${planCache.cells}
     <circle cx="${cx}" cy="${cy}" r="${R}" class="pm-ring"/>
@@ -527,9 +547,20 @@ function renderInsights() {
   const { zc } = windowOf(state.floor);
   const alpha = obstructionAngle(state, zc);
   const ratio = state.hOpp / state.width;
-  items.push(['street', state.hOpp <= zc
-    ? `Au ${floorName(state.floor)}, la fenêtre est plus haute que l'immeuble d'en face : il ne masque plus le ciel.`
-    : `Rapport H/L de ${fmt(ratio, 2)} : depuis le ${floorName(state.floor)}, le haut de l'immeuble d'en face est vu à ${fmt(alpha)}° au-dessus de l'horizontale. ${alpha > 45 ? "C'est une rue très encaissée : la fenêtre voit surtout la façade d'en face." : alpha > 25 ? "Le ciel bas est caché : le soleil d'hiver passe presque toujours derrière les toits d'en face." : 'Le masque reste modéré.'}`]);
+  const fl = floorName(state.floor);
+  const on = orientationName(state.facadeAz);
+  if (state.hOpp <= zc) {
+    items.push(['street', L(`Au ${fl}, la fenêtre est plus haute que l'immeuble d'en face : il ne masque plus le ciel.`,
+      `On the ${fl}, the window is higher than the opposite building: it no longer masks the sky.`)]);
+  } else {
+    const tail = alpha > 45
+      ? L("C'est une rue très encaissée : la fenêtre voit surtout la façade d'en face.", 'This is a deep street canyon: the window mostly sees the opposite façade.')
+      : alpha > 25
+        ? L("Le ciel bas est caché : le soleil d'hiver passe presque toujours derrière les toits d'en face.", 'The low sky is hidden: the winter sun almost always passes behind the opposite roofs.')
+        : L('Le masque reste modéré.', 'The mask remains moderate.');
+    items.push(['street', L(`Rapport H/L de ${fmt(ratio, 2)} : depuis le ${fl}, le haut de l'immeuble d'en face est vu à ${fmt(alpha)}° au-dessus de l'horizontale. ${tail}`,
+      `H/W ratio of ${fmt(ratio, 2)}: from the ${fl}, the top of the opposite building is seen ${fmt(alpha)}° above the horizontal. ${tail}`)]);
+  }
 
   const winter = streetDay(state, YEAR, 355, state.floor);
   let firstLit = null;
@@ -537,26 +568,37 @@ function renderInsights() {
     if (streetDay(state, YEAR, 355, n).h1 >= 1) { firstLit = n; break; }
   }
   if (winter.h0 < 0.1) {
-    items.push(['cal', `Le 21 décembre, cette façade ${orientationName(state.facadeAz)} ne voit pas le soleil direct, même dégagée.`]);
+    items.push(['cal', L(`Le 21 décembre, cette façade ${on} ne voit pas le soleil direct, même dégagée.`,
+      `On 21 December, this ${on}-facing façade gets no direct sun, even unobstructed.`)]);
   } else if (winter.h1 < 0.1) {
-    items.push(['cal', `Le 21 décembre, la fenêtre ne reçoit jamais le soleil direct (${durationLabel(winter.h0)} si la façade était dégagée). ${firstLit !== null ? `Il faut monter au ${floorName(firstLit)} pour en profiter au moins une heure.` : "Aucun étage de l'immeuble n'en profite une heure entière."}`]);
+    const climb = firstLit !== null
+      ? L(`Il faut monter au ${floorName(firstLit)} pour en profiter au moins une heure.`, `You need to go up to the ${floorName(firstLit)} to get at least an hour of it.`)
+      : L("Aucun étage de l'immeuble n'en profite une heure entière.", 'No floor of the building gets a full hour of it.');
+    items.push(['cal', L(`Le 21 décembre, la fenêtre ne reçoit jamais le soleil direct (${durationLabel(winter.h0)} si la façade était dégagée). ${climb}`,
+      `On 21 December, the window never receives direct sun (${durationLabel(winter.h0)} if the façade were unobstructed). ${climb}`)]);
   } else {
-    items.push(['cal', `Le 21 décembre, la fenêtre reçoit ${durationLabel(winter.h1)} de soleil direct, contre ${durationLabel(winter.h0)} si la façade était dégagée.`]);
+    items.push(['cal', L(`Le 21 décembre, la fenêtre reçoit ${durationLabel(winter.h1)} de soleil direct, contre ${durationLabel(winter.h0)} si la façade était dégagée.`,
+      `On 21 December, the window receives ${durationLabel(winter.h1)} of direct sun, against ${durationLabel(winter.h0)} if the façade were unobstructed.`)]);
   }
 
   const summer = streetDay(state, YEAR, 202, state.floor);
   if (summer.e0 > 1) {
     const loss = 1 - summer.e1 / summer.e0;
-    items.push(['sun', `Le 21 juillet, l'immeuble d'en face retire ${fmt(loss * 100)} % du rayonnement reçu par la fenêtre. ${loss > 0.3 ? "Il joue ici le rôle d'une vraie protection solaire d'été." : "En été, le soleil passe surtout au-dessus des toits d'en face : une protection reste nécessaire."}`]);
+    const tail = loss > 0.3
+      ? L("Il joue ici le rôle d'une vraie protection solaire d'été.", 'Here it acts as genuine summer solar shading.')
+      : L("En été, le soleil passe surtout au-dessus des toits d'en face : une protection reste nécessaire.", 'In summer the sun mostly passes over the opposite roofs: shading is still needed.');
+    items.push(['sun', L(`Le 21 juillet, l'immeuble d'en face retire ${fmt(loss * 100)} % du rayonnement reçu par la fenêtre. ${tail}`,
+      `On 21 July, the opposite building removes ${fmt(loss * 100)} % of the radiation reaching the window. ${tail}`)]);
   }
   if (state.floor < maxFloor()) {
     const top = streetDay(state, YEAR, state.doy, maxFloor());
-    items.push(['up', `Au dernier étage (${floorName(maxFloor())}), la même fenêtre recevrait ${durationLabel(top.h1)} de soleil direct le ${dateLabel(state.doy)}, contre ${durationLabel(dayData.h1)} ici.`]);
+    items.push(['up', L(`Au dernier étage (${floorName(maxFloor())}), la même fenêtre recevrait ${durationLabel(top.h1)} de soleil direct le ${dateLabel(state.doy)}, contre ${durationLabel(dayData.h1)} ici.`,
+      `On the top floor (${floorName(maxFloor())}), the same window would receive ${durationLabel(top.h1)} of direct sun on ${dateLabel(state.doy)}, against ${durationLabel(dayData.h1)} here.`)]);
   }
   $('insights').innerHTML = items
     .map(([ic, t]) => `<div class="insight"><svg viewBox="0 0 24 24" aria-hidden="true">${IC[ic]}</svg><p>${t}</p></div>`)
     .join('');
-  $('insightSub').textContent = `Façade ${orientationName(state.facadeAz)}, rue de ${fmt(state.width, 1)} m, ${floorName(state.floor)}`;
+  $('insightSub').textContent = L(`Façade ${on}, rue de ${fmt(state.width, 1)} m, ${fl}`, `${on[0].toUpperCase()}${on.slice(1)}-facing façade, ${fmt(state.width, 1)} m street, ${fl}`);
 }
 
 // ---------------------------------------------------------------------------

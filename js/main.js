@@ -1,9 +1,10 @@
 import { sunPosition, parisLocalToUTC, sunTimes, dayOfYearToDate, isSummerTime } from './solar.js';
 import {
-  GLAZINGS, PROTECTIONS, defaultConfig, makeModel, evaluate, dailyProfile, integrate, porosity, maskGrid,
+  GLAZINGS, PROTECTIONS, COLORS, defaultConfig, makeModel, evaluate, dailyProfile, integrate, porosity, maskGrid,
 } from './shading.js';
 import { SolarScene } from './scene3d.js';
 import { exportReport } from './report.js';
+import { L, LANG, LOCALE, withLang } from './i18n.js';
 import {
   renderSunPath, renderDayChart, renderLiveDay, maskLegendHTML, maskGradient, renderMonthChart, renderComparison, fmtHour, fmt, MONTHS,
 } from './charts.js';
@@ -27,7 +28,7 @@ const state = {
 };
 readURL();
 
-const ORIENTS = [['N', 0], ['NE', 45], ['E', 90], ['SE', 135], ['S', 180], ['SO', 225], ['O', 270], ['NO', 315]];
+const ORIENTS = [['N', 0], ['NE', 45], ['E', 90], ['SE', 135], ['S', 180], [L('SO', 'SW'), 225], [L('O', 'W'), 270], [L('NO', 'NW'), 315]];
 
 const ICONS = {
   none: '<rect x="5" y="3" width="14" height="18" rx="1"/><path d="M12 3v18M5 12h14"/>',
@@ -40,11 +41,11 @@ const ICONS = {
 };
 
 const DEPLOY_LABEL = {
-  roulant: 'Tablier baissé',
-  bso: 'Store descendu',
-  screen: 'Toile déroulée',
-  accordeon: 'Fermeture (0 % : repliés dans le tableau)',
-  banne: 'Déploiement',
+  roulant: L('Tablier baissé', 'Curtain lowered'),
+  bso: L('Store descendu', 'Blind lowered'),
+  screen: L('Toile déroulée', 'Fabric unrolled'),
+  accordeon: L('Fermeture (0 % : repliés dans le tableau)', 'Closure (0 %: folded into the reveal)'),
+  banne: L('Déploiement', 'Extension'),
 };
 
 let model = null;
@@ -67,7 +68,7 @@ for (const [label, az] of ORIENTS) {
   b.type = 'button';
   b.textContent = label;
   b.dataset.az = az;
-  b.setAttribute('aria-label', `Façade orientée ${label} (${az}°)`);
+  b.setAttribute('aria-label', L(`Façade orientée ${label} (${az}°)`, `Façade facing ${label} (${az}°)`));
   const a = (az * Math.PI) / 180;
   b.style.left = `${58 + 42 * Math.sin(a)}px`;
   b.style.top = `${58 - 42 * Math.cos(a)}px`;
@@ -213,19 +214,22 @@ function recomputeDay() {
   const incDay = integrate(withP, 'incident') * area;
   const light0 = integrate(without, 'light');
   renderKpis($('kpisDay'), {
-    heatLabel: 'Chaleur solaire entrée',
+    heatLabel: L('Chaleur solaire entrée', 'Solar heat entered'),
     heat: fmt(kWith * 1000), heat0: fmt(kWithout * 1000), unit: 'Wh',
     reduction: kWithout > 0.01 ? 1 - kWith / kWithout : null,
     gtot: incDay > 0.01 ? kWith / incDay : null,
     light: light0 > 0.001 ? integrate(withP, 'light') / light0 : null,
   });
-  $('kpiDayLabel').textContent = `${dateLabel(state.doy)}, ciel clair`;
+  $('kpiDayLabel').textContent = `${dateLabel(state.doy)}, ${L('ciel clair', 'clear sky')}`;
   const lit = sunlitHours(without);
   $('dayTotals').innerHTML = `
-    <span>Soleil direct sur la vitre <b>${lit}</b></span>
-    <span>Lever <b>${times.rise === null ? '—' : fmtHour(times.rise)}</b></span>
-    <span>Coucher <b>${times.set === null ? '—' : fmtHour(times.set)}</b></span>`;
-  $('daySub').textContent = `${dateLabel(state.doy)}, ciel clair. Fenêtre de ${fmt(area, 2)} m². Sans protection, c'est l'équivalent d'un radiateur de 1 000 W allumé ${durationLabel(kWithout)}.`;
+    <span>${L('Soleil direct sur la vitre', 'Direct sun on the glass')} <b>${lit}</b></span>
+    <span>${L('Lever', 'Sunrise')} <b>${times.rise === null ? '—' : fmtHour(times.rise)}</b></span>
+    <span>${L('Coucher', 'Sunset')} <b>${times.set === null ? '—' : fmtHour(times.set)}</b></span>`;
+  $('daySub').textContent = L(
+    `${dateLabel(state.doy)}, ciel clair. Fenêtre de ${fmt(area, 2)} m². Sans protection, c'est l'équivalent d'un radiateur de 1 000 W allumé ${durationLabel(kWithout)}.`,
+    `${dateLabel(state.doy)}, clear sky. ${fmt(area, 2)} m² window. Without shading, this equals a 1,000 W heater running for ${durationLabel(kWithout)}.`
+  );
 }
 
 function sunlitHours(profile) {
@@ -238,7 +242,7 @@ function sunlitHours(profile) {
     if (r.dirInc > 5 && r.sunlit > 0.05) n++;
   }
   const h = (n * 10) / 60;
-  return h < 0.1 ? 'aucun' : durationLabel(h);
+  return h < 0.1 ? L('aucun', 'none') : durationLabel(h);
 }
 
 function durationLabel(h) {
@@ -255,15 +259,15 @@ function scheduleSlow() {
 }
 
 const COMPARE = [
-  { type: 'none', label: 'Aucune', setting: 'référence', patch: {} },
-  { type: 'battants', label: 'Volets battants', setting: 'fermés, persiennés', patch: { openAngle: 0, louvered: true } },
-  { type: 'battants', label: 'Volets battants', setting: 'ouverts à 90°', patch: { openAngle: 90, louvered: false } },
-  { type: 'accordeon', label: 'Volets pliants', setting: 'fermés, persiennés', patch: { deploy: 1, louvered: true } },
-  { type: 'roulant', label: 'Volet roulant', setting: 'baissé', patch: { deploy: 1, ajoure: false } },
-  { type: 'roulant', label: 'Volet roulant', setting: 'à mi-hauteur', patch: { deploy: 0.5 } },
-  { type: 'bso', label: 'Brise-soleil orientable', setting: 'lames à 45°', patch: { deploy: 1, slatAngle: 45 } },
-  { type: 'screen', label: 'Store toile (screen)', setting: 'toile à 5 %', patch: { deploy: 1, openness: 5 } },
-  { type: 'banne', label: 'Store banne', setting: 'avancée 1,5 m', patch: { deploy: 1, bannePro: 1.5, banneAngle: 25 } },
+  { type: 'none', label: PROTECTIONS.none.label, setting: L('référence', 'reference'), patch: {} },
+  { type: 'battants', label: PROTECTIONS.battants.label, setting: L('fermés, persiennés', 'closed, louvred'), patch: { openAngle: 0, louvered: true } },
+  { type: 'battants', label: PROTECTIONS.battants.label, setting: L('ouverts à 90°', 'open at 90°'), patch: { openAngle: 90, louvered: false } },
+  { type: 'accordeon', label: PROTECTIONS.accordeon.label, setting: L('fermés, persiennés', 'closed, louvred'), patch: { deploy: 1, louvered: true } },
+  { type: 'roulant', label: PROTECTIONS.roulant.label, setting: L('baissé', 'lowered'), patch: { deploy: 1, ajoure: false } },
+  { type: 'roulant', label: PROTECTIONS.roulant.label, setting: L('à mi-hauteur', 'half-way down'), patch: { deploy: 0.5 } },
+  { type: 'bso', label: PROTECTIONS.bso.label, setting: L('lames à 45°', 'slats at 45°'), patch: { deploy: 1, slatAngle: 45 } },
+  { type: 'screen', label: PROTECTIONS.screen.label, setting: L('toile à 5 %', '5 % fabric'), patch: { deploy: 1, openness: 5 } },
+  { type: 'banne', label: PROTECTIONS.banne.label, setting: L('avancée 1,5 m', '1.5 m projection'), patch: { deploy: 1, bannePro: 1.5, banneAngle: 25 } },
 ];
 
 function recomputeSlow() {
@@ -301,25 +305,26 @@ function recomputeSlow() {
     const r1 = (v) => fmt(v, v < 10 ? 1 : 0);
     $('kpisHeat').innerHTML = `
       <div class="kpi hero">
-        <div class="k-label">Montée de température évitée</div>
-        <div class="k-value">${avoided < 1 ? '0' : `${r1(rise.low)} à ${r1(rise.high)}`}<small>°C</small></div>
-        <div class="k-note">pièce de <b>${fmt(state.roomArea)} m²</b>, sur la journée</div>
+        <div class="k-label">${L('Montée de température évitée', 'Temperature rise avoided')}</div>
+        <div class="k-value">${avoided < 1 ? '0' : `${r1(rise.low)} ${L('à', 'to')} ${r1(rise.high)}`}<small>°C</small></div>
+        <div class="k-note">${L(`pièce de <b>${fmt(state.roomArea)} m²</b>, sur la journée`, `<b>${fmt(state.roomArea)} m²</b> room, over the day`)}</div>
       </div>
       <div class="kpi">
-        <div class="k-label">Chaleur solaire évitée</div>
+        <div class="k-label">${L('Chaleur solaire évitée', 'Solar heat avoided')}</div>
         <div class="k-value">${fmt(avoided)}<small>Wh</small></div>
-        <div class="k-note">sans protection : <b>${fmt(a)} Wh</b> entrent</div>
+        <div class="k-note">${L(`sans protection : <b>${fmt(a)} Wh</b> entrent`, `without shading: <b>${fmt(a)} Wh</b> enter`)}</div>
       </div>
       <div class="kpi kpi-wide">
-        <div class="k-label">Hypothèses</div>
-        <div class="k-note">La chaleur évitée est rapportée à la capacité thermique de la pièce. Valeur basse : murs lourds (pierre, 260 kJ/m²K) et 40 % de la chaleur évacuée par la ventilation. Valeur haute : inertie moyenne (165 kJ/m²K) et 10 % évacuée. C'est un ordre de grandeur, pas une simulation thermique dynamique.</div>
+        <div class="k-label">${L('Hypothèses', 'Assumptions')}</div>
+        <div class="k-note">${L("La chaleur évitée est rapportée à la capacité thermique de la pièce. Valeur basse : murs lourds (pierre, 260 kJ/m²K) et 40 % de la chaleur évacuée par la ventilation. Valeur haute : inertie moyenne (165 kJ/m²K) et 10 % évacuée. C'est un ordre de grandeur, pas une simulation thermique dynamique.",
+          'The heat avoided is divided by the thermal capacity of the room. Low value: heavy walls (stone, 260 kJ/m²K) and 40 % of the heat removed by ventilation. High value: medium thermal mass (165 kJ/m²K) and 10 % removed. An order of magnitude, not a dynamic thermal simulation.')}</div>
       </div>`;
     heatData = { avoided, a, b, rise };
   }
 
   const curMonth = dayOfYearToDate(YEAR, state.doy).getUTCMonth();
   renderMonthChart($('monthChart'), { data: monthData, currentMonth: curMonth });
-  $('monthTable').innerHTML = `<table><thead><tr><th>Mois</th><th>Sans (kWh/j)</th><th>Avec (kWh/j)</th><th>Arrêté</th></tr></thead><tbody>${
+  $('monthTable').innerHTML = `<table><thead><tr><th>${L('Mois', 'Month')}</th><th>${L('Sans (kWh/j)', 'Without (kWh/day)')}</th><th>${L('Avec (kWh/j)', 'With (kWh/day)')}</th><th>${L('Arrêté', 'Blocked')}</th></tr></thead><tbody>${
     monthData.map((d, i) => `<tr><td>${MONTHS[i]}</td><td>${fmt(d.without, 1)}</td><td>${fmt(d.withP, 1)}</td><td>${d.without > 0.01 ? fmt((1 - d.withP / d.without) * 100) : '—'} %</td></tr>`).join('')
   }</tbody></table>`;
 
@@ -343,7 +348,7 @@ function recomputeSlow() {
     const p = dailyProfile(curLow, YEAR, state.doy, 15);
     const e = integrate(p, 'gain');
     rows.push({
-      label: 'Votre réglage',
+      label: L('Votre réglage', 'Your setting'),
       setting: `${PROTECTIONS[state.type].label.toLowerCase()}, ${settingLabel()}`,
       reduction: eBase > 0 ? 1 - e / eBase : 0,
       light: lBase > 0 ? integrate(p, 'light') / lBase : 1,
@@ -353,19 +358,22 @@ function recomputeSlow() {
   }
   rows.sort((a, b) => b.reduction - a.reduction);
   renderComparison($('comparison'), rows);
-  $('cmpSub').textContent = `Sur toute la journée du ${dateLabel(state.doy)}, pour votre fenêtre et votre orientation. Lumière : part de la lumière naturelle conservée.`;
+  $('cmpSub').textContent = L(
+    `Sur toute la journée du ${dateLabel(state.doy)}, pour votre fenêtre et votre orientation. Lumière : part de la lumière naturelle conservée.`,
+    `Over the whole day of ${dateLabel(state.doy)}, for your window and orientation. Daylight: share of natural light kept.`
+  );
 
   renderInsights();
 }
 
 function settingLabel() {
   switch (state.type) {
-    case 'battants': return `${state.openAngle}°, ${state.louvered ? 'persiennés' : 'pleins'}`;
-    case 'accordeon': return `fermés à ${Math.round(state.deploy * 100)} %`;
-    case 'roulant': return `baissé à ${Math.round(state.deploy * 100)} %`;
-    case 'bso': return `${Math.round(state.deploy * 100)} %, lames à ${state.slatAngle}°`;
-    case 'screen': return `${Math.round(state.deploy * 100)} %, toile ${state.openness} %`;
-    case 'banne': return `avancée ${fmt(state.bannePro * state.deploy, 1)} m, ${state.banneAngle}°`;
+    case 'battants': return `${state.openAngle}°, ${state.louvered ? L('persiennés', 'louvred') : L('pleins', 'solid')}`;
+    case 'accordeon': return L(`fermés à ${Math.round(state.deploy * 100)} %`, `${Math.round(state.deploy * 100)} % closed`);
+    case 'roulant': return L(`baissé à ${Math.round(state.deploy * 100)} %`, `${Math.round(state.deploy * 100)} % lowered`);
+    case 'bso': return L(`${Math.round(state.deploy * 100)} %, lames à ${state.slatAngle}°`, `${Math.round(state.deploy * 100)} %, slats at ${state.slatAngle}°`);
+    case 'screen': return L(`${Math.round(state.deploy * 100)} %, toile ${state.openness} %`, `${Math.round(state.deploy * 100)} %, ${state.openness} % fabric`);
+    case 'banne': return L(`avancée ${fmt(state.bannePro * state.deploy, 1)} m, ${state.banneAngle}°`, `${fmt(state.bannePro * state.deploy, 1)} m projection, ${state.banneAngle}°`);
     default: return '';
   }
 }
@@ -385,32 +393,32 @@ function renderKpis(el, d) {
     <div class="kpi hero">
       <div class="k-label">${d.heatLabel}</div>
       <div class="k-value">${d.heat}<small>${d.unit}</small></div>
-      <div class="k-note">sans protection : <b>${d.heat0} ${d.unit}</b></div>
+      <div class="k-note">${L('sans protection :', 'without shading:')} <b>${d.heat0} ${d.unit}</b></div>
     </div>
     <div class="kpi">
-      <div class="k-label">Rayonnement arrêté</div>
+      <div class="k-label">${L('Rayonnement arrêté', 'Radiation blocked')}</div>
       <div class="k-value">${pct(d.reduction)}</div>
       <div class="meter"><i style="width:${d.reduction === null ? 0 : Math.max(0, d.reduction * 100)}%"></i></div>
     </div>
     <div class="kpi">
-      <div class="k-label">Facteur d'ombrage F<sub>c</sub> du dispositif</div>
+      <div class="k-label">${L("Facteur d'ombrage F<sub>c</sub> du dispositif", 'Shading factor F<sub>c</sub> of the device')}</div>
       <div class="k-value">${d.reduction === null ? '—' : fmt(Math.max(0, 1 - d.reduction), 2)}</div>
-      <div class="k-note">g<sub>tot</sub> avec / g<sub>tot</sub> sans protection</div>
+      <div class="k-note">${L('g<sub>tot</sub> avec / g<sub>tot</sub> sans protection', 'g<sub>tot</sub> with / g<sub>tot</sub> without shading')}</div>
     </div>
     <div class="kpi">
-      <div class="k-label">Facteur solaire global g<sub>tot</sub></div>
+      <div class="k-label">${L('Facteur solaire global g<sub>tot</sub>', 'Total solar energy transmittance g<sub>tot</sub>')}</div>
       <div class="k-value">${d.gtot === null ? '—' : fmt(d.gtot, 2)}</div>
-      <div class="k-note">vitrage seul : <b>g = ${fmt(gl.g, 2)}</b></div>
+      <div class="k-note">${L('vitrage seul :', 'glazing alone:')} <b>g = ${fmt(gl.g, 2)}</b></div>
     </div>
     <div class="kpi">
-      <div class="k-label">Lumière naturelle conservée</div>
+      <div class="k-label">${L('Lumière naturelle conservée', 'Daylight kept')}</div>
       <div class="k-value">${pct(d.light)}</div>
-      <div class="k-note">vue : <b>${PROTECTIONS[state.type].view.toLowerCase()}</b></div>
+      <div class="k-note">${L('vue :', 'view:')} <b>${PROTECTIONS[state.type].view.toLowerCase()}</b></div>
     </div>
     <div class="kpi">
-      <div class="k-label">Porosité, vue de face</div>
+      <div class="k-label">${L('Porosité, vue de face', 'Porosity, seen face on')}</div>
       <div class="k-value">${pct(poro)}</div>
-      <div class="k-note">de la baie laissée libre pour la ventilation</div>
+      <div class="k-note">${L('de la baie laissée libre pour la ventilation', 'of the opening left free for ventilation')}</div>
     </div>`;
 }
 
@@ -467,7 +475,7 @@ function updateInstant(force = false) {
   const P = r.gain * area;
   const P0 = r0.gain * area;
   renderKpis($('kpis'), {
-    heatLabel: 'Chaleur solaire entrant',
+    heatLabel: L('Chaleur solaire entrant', 'Solar heat entering'),
     heat: fmt(P), heat0: fmt(P0), unit: 'W',
     reduction: P0 > 2 ? 1 - P / P0 : null,
     gtot: r.incident > 5 ? r.gain / r.incident : null,
@@ -478,13 +486,13 @@ function updateInstant(force = false) {
   // Badge soleil
   const incidence = Math.acos(Math.min(1, r.cosT)) * 180 / Math.PI;
   let tag;
-  if (sun.altitude <= 0) tag = '<span class="tag tag-night">Soleil couché</span>';
-  else if (r.dirInc > 1) tag = `<span class="tag tag-sun">Soleil sur la façade · ${fmt(incidence)}° d'incidence</span>`;
-  else tag = '<span class="tag tag-shade">Façade à l\'ombre</span>';
+  if (sun.altitude <= 0) tag = `<span class="tag tag-night">${L('Soleil couché', 'Sun has set')}</span>`;
+  else if (r.dirInc > 1) tag = `<span class="tag tag-sun">${L(`Soleil sur la façade · ${fmt(incidence)}° d'incidence`, `Sun on the façade · ${fmt(incidence)}° incidence`)}</span>`;
+  else tag = `<span class="tag tag-shade">${L("Façade à l'ombre", 'Façade in shade')}</span>`;
   $('sunBadge').innerHTML = `
     <strong>${dateLabel(state.doy)} · ${fmtHour(state.hour)}</strong>
-    Hauteur ${fmt(Math.max(sun.altitude, -90), 1)}° · azimut ${fmt(sun.azimuth)}°<br>
-    Façade : ${fmt(r.incident)} W/m² reçus<br>${tag}`;
+    ${L('Hauteur', 'Altitude')} ${fmt(Math.max(sun.altitude, -90), 1)}° · ${L('azimut', 'azimuth')} ${fmt(sun.azimuth)}°<br>
+    ${L(`Façade : ${fmt(r.incident)} W/m² reçus`, `Façade: ${fmt(r.incident)} W/m² received`)}<br>${tag}`;
 
   if (scene) scene.setSun(sun, state.facadeAz);
 
@@ -503,9 +511,9 @@ function updateInstant(force = false) {
     if (liveOn) renderSunPath($('liveSun'), { year: YEAR, doy: state.doy, hour: state.hour, sun, facadeAz: state.facadeAz });
     const t = dayData ? dayData.times : sunTimes(YEAR, state.doy);
     $('sunFacts').innerHTML = `
-      <div><span>Lever</span><b>${t.rise === null ? '—' : fmtHour(t.rise)}</b></div>
-      <div><span>Midi solaire</span><b>${fmtHour(t.noon)}</b><span>${fmt(t.maxAlt, 1)}°</span></div>
-      <div><span>Coucher</span><b>${t.set === null ? '—' : fmtHour(t.set)}</b></div>`;
+      <div><span>${L('Lever', 'Sunrise')}</span><b>${t.rise === null ? '—' : fmtHour(t.rise)}</b></div>
+      <div><span>${L('Midi solaire', 'Solar noon')}</span><b>${fmtHour(t.noon)}</b><span>${fmt(t.maxAlt, 1)}°</span></div>
+      <div><span>${L('Coucher', 'Sunset')}</span><b>${t.set === null ? '—' : fmtHour(t.set)}</b></div>`;
   }
   if (!playing) renderInsights(r);
 }
@@ -522,7 +530,9 @@ const IC = {
 };
 
 function orientationName(az) {
-  const names = ['nord', 'nord-est', 'est', 'sud-est', 'sud', 'sud-ouest', 'ouest', 'nord-ouest'];
+  const names = LANG === 'en'
+    ? ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west']
+    : ['nord', 'nord-est', 'est', 'sud-est', 'sud', 'sud-ouest', 'ouest', 'nord-ouest'];
   return names[Math.round(((az % 360) + 360) % 360 / 45) % 8];
 }
 function orientClass(az) {
@@ -534,6 +544,7 @@ function orientClass(az) {
   if (a > 45 && a <= 112.5) return 'E';
   return 'N';
 }
+const cap = (s) => `${s[0].toUpperCase()}${s.slice(1)}`;
 
 let lastInstant = null;
 function renderInsights(instant) {
@@ -544,23 +555,33 @@ function renderInsights(instant) {
   const on = orientationName(state.facadeAz);
 
   const orientText = {
-    S: `Façade ${on} : en été le soleil de midi est haut (jusqu'à 65°) et frappe la vitre de biais ; une avancée horizontale l'arrête bien. En hiver, bas sur l'horizon, il entre profondément dans la pièce : un apport gratuit à conserver.`,
-    O: `Façade ${on} : le soleil l'atteint l'après-midi, de plus en plus bas et de face, au moment où l'air est le plus chaud. C'est l'orientation la plus exposée à la surchauffe ; seule une protection verticale fermée à temps est efficace.`,
-    E: `Façade ${on} : le soleil la frappe le matin, bas et presque de face. Les apports arrivent tôt, quand l'air est encore frais, mais ils chargent la pièce pour la journée ; fermer avant que le soleil n'atteigne la vitre.`,
-    SE: `Façade ${on} : le soleil l'atteint toute la matinée et jusqu'au début d'après-midi. Il arrive d'abord bas et de face, puis haut et de biais : une protection réglable (BSO, screen) suit mieux cette course qu'une avancée fixe.`,
-    SO: `Façade ${on} : elle reçoit le soleil de midi, haut, puis celui de l'après-midi, bas et de face, aux heures les plus chaudes. Une avancée ne suffit pas en fin de journée : il faut une protection verticale.`,
-    N: `Façade ${on} : peu de soleil direct, seulement tôt le matin ou tard le soir en été, et très rasant. L'essentiel des apports vient du ciel ; les protections servent surtout à l'occultation et à l'intimité.`,
+    S: L(`Façade ${on} : en été le soleil de midi est haut (jusqu'à 65°) et frappe la vitre de biais ; une avancée horizontale l'arrête bien. En hiver, bas sur l'horizon, il entre profondément dans la pièce : un apport gratuit à conserver.`,
+      `${cap(on)}-facing façade: in summer the noon sun is high (up to 65°) and strikes the glass at a slant; a horizontal overhang stops it well. In winter, low on the horizon, it reaches deep into the room: free gains worth keeping.`),
+    O: L(`Façade ${on} : le soleil l'atteint l'après-midi, de plus en plus bas et de face, au moment où l'air est le plus chaud. C'est l'orientation la plus exposée à la surchauffe ; seule une protection verticale fermée à temps est efficace.`,
+      `${cap(on)}-facing façade: the sun reaches it in the afternoon, lower and lower and head-on, when the air is hottest. It is the orientation most prone to overheating; only a vertical shading closed in time works.`),
+    E: L(`Façade ${on} : le soleil la frappe le matin, bas et presque de face. Les apports arrivent tôt, quand l'air est encore frais, mais ils chargent la pièce pour la journée ; fermer avant que le soleil n'atteigne la vitre.`,
+      `${cap(on)}-facing façade: the sun strikes it in the morning, low and almost head-on. Gains come early, while the air is still cool, but they load the room for the day; close before the sun reaches the glass.`),
+    SE: L(`Façade ${on} : le soleil l'atteint toute la matinée et jusqu'au début d'après-midi. Il arrive d'abord bas et de face, puis haut et de biais : une protection réglable (BSO, screen) suit mieux cette course qu'une avancée fixe.`,
+      `${cap(on)}-facing façade: the sun reaches it all morning and into the early afternoon, first low and head-on, then high and at a slant: an adjustable device (louvres, screen) follows this path better than a fixed overhang.`),
+    SO: L(`Façade ${on} : elle reçoit le soleil de midi, haut, puis celui de l'après-midi, bas et de face, aux heures les plus chaudes. Une avancée ne suffit pas en fin de journée : il faut une protection verticale.`,
+      `${cap(on)}-facing façade: it gets the high noon sun, then the low afternoon sun head-on, during the hottest hours. An overhang is not enough late in the day: vertical shading is needed.`),
+    N: L(`Façade ${on} : peu de soleil direct, seulement tôt le matin ou tard le soir en été, et très rasant. L'essentiel des apports vient du ciel ; les protections servent surtout à l'occultation et à l'intimité.`,
+      `${cap(on)}-facing façade: little direct sun, only early morning or late evening in summer, and very grazing. Most gains come from the sky; shading is mostly for blackout and privacy.`),
   };
   items.push(['compass', orientText[oc]]);
 
   if (r) {
     if (r.sky.dni <= 0) {
-      items.push(['sun', 'Le soleil est couché : rouvrir les protections permet d\'évacuer la chaleur accumulée (surventilation nocturne).']);
+      items.push(['sun', L("Le soleil est couché : rouvrir les protections permet d'évacuer la chaleur accumulée (surventilation nocturne).", 'The sun has set: opening the shading again lets the stored heat out (night-time ventilation).')]);
     } else if (r.dirInc <= 1) {
-      items.push(['sun', 'À cette heure, le soleil est derrière la façade : elle ne reçoit que le rayonnement diffus du ciel et celui réfléchi par le sol.']);
+      items.push(['sun', L('À cette heure, le soleil est derrière la façade : elle ne reçoit que le rayonnement diffus du ciel et celui réfléchi par le sol.', 'At this time the sun is behind the façade: it only receives diffuse radiation from the sky and light reflected by the ground.')]);
     } else {
       const inc = Math.acos(Math.min(1, r.cosT)) * 180 / Math.PI;
-      items.push(['sun', `À cette heure, le soleil frappe la vitre sous ${fmt(inc)}° d'incidence et la façade reçoit ${fmt(r.incident)} W/m². ${r.sunlit > 0.02 ? `Sans protection, ${fmt(evaluate(ref, sunPosition(parisLocalToUTC(YEAR, state.doy, state.hour)), state.doy).sunlit * 100)} % du vitrage serait au soleil.` : ''}`]);
+      const lit0 = r.sunlit > 0.02 ? fmt(evaluate(ref, sunPosition(parisLocalToUTC(YEAR, state.doy, state.hour)), state.doy).sunlit * 100) : null;
+      items.push(['sun', L(
+        `À cette heure, le soleil frappe la vitre sous ${fmt(inc)}° d'incidence et la façade reçoit ${fmt(r.incident)} W/m². ${lit0 ? `Sans protection, ${lit0} % du vitrage serait au soleil.` : ''}`,
+        `At this time the sun strikes the glass at ${fmt(inc)}° incidence and the façade receives ${fmt(r.incident)} W/m². ${lit0 ? `Without shading, ${lit0} % of the glazing would be in sun.` : ''}`
+      )]);
     }
   }
 
@@ -569,9 +590,12 @@ function renderInsights(instant) {
     monthData.forEach((d, i) => { if (d.without > monthData[im].without) im = i; });
     const jun = monthData[5].without;
     const extra = oc === 'S' && monthData[im].without > jun * 1.1
-      ? ' Au sud, les apports sont plus forts au printemps et en automne qu\'en juin : le soleil y est plus bas et frappe la vitre plus franchement.'
+      ? L(" Au sud, les apports sont plus forts au printemps et en automne qu'en juin : le soleil y est plus bas et frappe la vitre plus franchement.", ' Facing south, gains are higher in spring and autumn than in June: the sun is lower and strikes the glass more squarely.')
       : '';
-    items.push(['cal', `Par ciel clair, cette fenêtre reçoit le plus d'énergie en ${MONTHS[im].replace('.', '')} (${fmt(monthData[im].without, 1)} kWh par jour sans protection).${extra}`]);
+    items.push(['cal', L(
+      `Par ciel clair, cette fenêtre reçoit le plus d'énergie en ${MONTHS[im].replace('.', '')} (${fmt(monthData[im].without, 1)} kWh par jour sans protection).${extra}`,
+      `On clear days, this window receives the most energy in ${MONTHS[im]} (${fmt(monthData[im].without, 1)} kWh per day without shading).${extra}`
+    )]);
   }
 
   items.push(['tip', protectionTip(oc)]);
@@ -579,24 +603,39 @@ function renderInsights(instant) {
   $('insights').innerHTML = items
     .map(([ic, t]) => `<div class="insight"><svg viewBox="0 0 24 24" aria-hidden="true">${IC[ic]}</svg><p>${t}</p></div>`)
     .join('');
-  $('insightSub').textContent = `${PROTECTIONS[state.type].label}, façade ${on}`;
+  $('insightSub').textContent = L(`${PROTECTIONS[state.type].label}, façade ${on}`, `${PROTECTIONS[state.type].label}, ${on}-facing façade`);
 }
 
 function protectionTip(oc) {
   const t = state.type;
-  if (t === 'none') return `Même sans protection, le tableau de ${Math.round(state.e * 100)} cm fait office de petit masque : il ombre le haut et les côtés du vitrage quand le soleil arrive de biais.`;
-  if (t === 'banne' && (oc === 'E' || oc === 'O' || oc === 'N')) return "Face au soleil bas de l'est ou de l'ouest, le store banne laisse passer l'essentiel du rayonnement sous la toile. Comparez avec un BSO ou un screen.";
-  if (t === 'banne') return 'Au sud, le store banne coupe le soleil haut de midi. Plus il avance et s\'incline, plus il protège tard dans la journée, au prix de la vue vers le ciel.';
-  if (t === 'battants' && state.openAngle >= 60 && state.openAngle <= 120) return 'Ouverts à angle droit, les vantaux deviennent des ailettes verticales : utiles quand le soleil arrive de biais, inutiles quand il est face à la fenêtre.';
-  if (t === 'battants' && state.openAngle >= 150) return 'Rabattus contre la façade, les volets ne protègent plus rien : le résultat est celui d\'une fenêtre nue.';
-  if (t === 'roulant' && state.deploy < 0.95) return 'Un volet roulant partiellement baissé ne protège que le haut du vitrage. Observez la tache de soleil au sol en vue intérieure : elle raccourcit mais persiste.';
-  if (t === 'roulant') return state.ajoure ? 'Les lames ajourées laissent filtrer un peu de lumière une fois le tablier en bas, sans laisser passer le soleil direct.' : 'Baissé, le volet roulant arrête presque tout, lumière comprise. Des lames ajourées ou un BSO préservent mieux l\'éclairage naturel.';
-  if (t === 'bso' && state.slatAngle < 25) return 'Lames presque horizontales : le soleil haut est arrêté, mais le soleil bas passe entre les lames. Inclinez-les davantage quand le soleil descend.';
-  if (t === 'bso') return 'Le BSO s\'ajuste à la hauteur du soleil : il suffit de fermer les lames juste assez pour couper le rayonnement direct, et la lumière diffuse continue d\'entrer.';
-  if (t === 'screen') return `Avec une toile à ${state.openness} %, on garde une vue voilée vers l'extérieur. Une toile foncée offre une meilleure vision au travers ; une toile claire renvoie plus de rayonnement.`;
-  if (t === 'accordeon' && state.deploy < 0.95) return 'Entrouverts, les volets pliants forment un zigzag dans le tableau : leurs feuilles obliques coupent une partie du soleil rasant, comme des ailettes.';
-  if (t === 'accordeon') return state.louvered ? 'Persiennés, les volets pliants bloquent le soleil direct tout en laissant passer l\'air et un peu de lumière, comme des persiennes parisiennes.' : 'Pleins, les volets pliants occultent complètement : efficaces, mais la pièce reste dans le noir.';
-  if (state.color === 'fonce') return 'Une teinte foncée absorbe davantage : une petite partie de cette chaleur rejoint la vitre. À l\'extérieur, l\'effet reste modeste.';
+  if (t === 'none') return L(`Même sans protection, le tableau de ${Math.round(state.e * 100)} cm fait office de petit masque : il ombre le haut et les côtés du vitrage quand le soleil arrive de biais.`,
+    `Even without shading, the ${Math.round(state.e * 100)} cm reveal acts as a small mask: it shades the top and sides of the glazing when the sun comes at a slant.`);
+  if (t === 'banne' && (oc === 'E' || oc === 'O' || oc === 'N')) return L("Face au soleil bas de l'est ou de l'ouest, le store banne laisse passer l'essentiel du rayonnement sous la toile. Comparez avec un BSO ou un screen.",
+    'Against the low eastern or western sun, the awning lets most of the radiation through under the fabric. Compare with louvres or a screen.');
+  if (t === 'banne') return L("Au sud, le store banne coupe le soleil haut de midi. Plus il avance et s'incline, plus il protège tard dans la journée, au prix de la vue vers le ciel.",
+    'Facing south, the awning cuts the high noon sun. The further it projects and slopes, the later in the day it protects, at the cost of the view of the sky.');
+  if (t === 'battants' && state.openAngle >= 60 && state.openAngle <= 120) return L('Ouverts à angle droit, les vantaux deviennent des ailettes verticales : utiles quand le soleil arrive de biais, inutiles quand il est face à la fenêtre.',
+    'Open at right angles, the leaves become vertical fins: useful when the sun comes at a slant, useless when it faces the window.');
+  if (t === 'battants' && state.openAngle >= 150) return L("Rabattus contre la façade, les volets ne protègent plus rien : le résultat est celui d'une fenêtre nue.",
+    'Folded back against the façade, the shutters no longer protect anything: the result is that of a bare window.');
+  if (t === 'roulant' && state.deploy < 0.95) return L('Un volet roulant partiellement baissé ne protège que le haut du vitrage. Observez la tache de soleil au sol en vue intérieure : elle raccourcit mais persiste.',
+    'A partly lowered roller shutter only protects the top of the glazing. Watch the sun patch on the floor in the interior view: it shrinks but remains.');
+  if (t === 'roulant') return state.ajoure
+    ? L('Les lames ajourées laissent filtrer un peu de lumière une fois le tablier en bas, sans laisser passer le soleil direct.', 'Perforated slats let a little light through once fully lowered, without letting direct sun in.')
+    : L("Baissé, le volet roulant arrête presque tout, lumière comprise. Des lames ajourées ou un BSO préservent mieux l'éclairage naturel.", 'Lowered, the roller shutter stops almost everything, light included. Perforated slats or louvres keep daylight better.');
+  if (t === 'bso' && state.slatAngle < 25) return L('Lames presque horizontales : le soleil haut est arrêté, mais le soleil bas passe entre les lames. Inclinez-les davantage quand le soleil descend.',
+    'Nearly horizontal slats: the high sun is stopped, but the low sun passes between them. Tilt them further as the sun goes down.');
+  if (t === 'bso') return L("Le BSO s'ajuste à la hauteur du soleil : il suffit de fermer les lames juste assez pour couper le rayonnement direct, et la lumière diffuse continue d'entrer.",
+    'Louvres adapt to the sun height: closing the slats just enough to cut direct radiation keeps diffuse light coming in.');
+  if (t === 'screen') return L(`Avec une toile à ${state.openness} %, on garde une vue voilée vers l'extérieur. Une toile foncée offre une meilleure vision au travers ; une toile claire renvoie plus de rayonnement.`,
+    `With a ${state.openness} % fabric you keep a veiled view outside. A dark fabric gives better see-through; a light one reflects more radiation.`);
+  if (t === 'accordeon' && state.deploy < 0.95) return L('Entrouverts, les volets pliants forment un zigzag dans le tableau : leurs feuilles obliques coupent une partie du soleil rasant, comme des ailettes.',
+    'Half-open, folding shutters form a zigzag in the reveal: their slanted panels cut part of the grazing sun, like fins.');
+  if (t === 'accordeon') return state.louvered
+    ? L("Persiennés, les volets pliants bloquent le soleil direct tout en laissant passer l'air et un peu de lumière, comme des persiennes parisiennes.", 'Louvred folding shutters block direct sun while letting air and some light through, like Parisian persiennes.')
+    : L('Pleins, les volets pliants occultent complètement : efficaces, mais la pièce reste dans le noir.', 'Solid folding shutters black out completely: effective, but the room stays dark.');
+  if (state.color === 'fonce') return L("Une teinte foncée absorbe davantage : une petite partie de cette chaleur rejoint la vitre. À l'extérieur, l'effet reste modeste.",
+    'A dark colour absorbs more: a small part of that heat reaches the glass. Outside, the effect stays modest.');
   return PROTECTIONS[t].text;
 }
 
@@ -626,12 +665,12 @@ function syncControls() {
   for (const f of document.querySelectorAll('.params [data-for]')) {
     f.hidden = !f.dataset.for.split(' ').includes(state.type);
   }
-  $('deployLabel').textContent = DEPLOY_LABEL[state.type] || 'Déploiement';
+  $('deployLabel').textContent = DEPLOY_LABEL[state.type] || L('Déploiement', 'Extension');
   $('typeDesc').textContent = PROTECTIONS[state.type].text;
 }
 
 function dateLabel(doy) {
-  return dayOfYearToDate(YEAR, doy).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', timeZone: 'UTC' });
+  return dayOfYearToDate(YEAR, doy).toLocaleDateString(LOCALE, { day: 'numeric', month: 'long', timeZone: 'UTC' });
 }
 
 // ---------------------------------------------------------------------------
@@ -643,7 +682,7 @@ let raf = 0;
 $('play').addEventListener('click', () => {
   playing = !playing;
   $('play').classList.toggle('is-playing', playing);
-  $('play').setAttribute('aria-label', playing ? 'Mettre en pause' : 'Animer la journée');
+  $('play').setAttribute('aria-label', playing ? L('Mettre en pause', 'Pause') : L('Animer la journée', 'Play the day'));
   if (playing) {
     const t = dayData.times;
     if (t.set !== null && (state.hour >= t.set || state.hour < (t.rise ?? 0) - 0.5)) state.hour = Math.max(0, (t.rise ?? 5) - 0.5);
@@ -679,6 +718,7 @@ const URL_KEYS = { ...Object.fromEntries(GEOMETRY_KEYS.map((k) => [k, k])), room
 function writeURL() {
   const p = new URLSearchParams();
   for (const k of Object.keys(URL_KEYS)) p.set(k, String(state[k]));
+  withLang(p);
   history.replaceState(null, '', `?${p.toString()}${location.hash}`);
 }
 
@@ -724,15 +764,15 @@ function exportSheet(preview = false) {
     scene,
     preview,
     title: p.label,
-    setting: state.type === 'none' ? 'fenêtre sans protection' : settingLabel(),
+    setting: state.type === 'none' ? L('fenêtre sans protection', 'window without shading') : settingLabel(),
     summary: p.text,
     rows: [
-      ['Façade', `${on.charAt(0).toUpperCase()}${on.slice(1)} (azimut ${state.facadeAz}°), Paris`],
-      ['Fenêtre', `${fmt(state.W, 2)} × ${fmt(state.H, 2)} m, tableau de ${Math.round(state.e * 100)} cm`],
-      ['Vitrage', `${gl.label}, g = ${fmt(gl.g, 2)}`],
-      ['Protection', state.type === 'none' ? 'aucune' : `${p.label.toLowerCase()}, ${settingLabel()}, teinte ${state.color === 'fonce' ? 'foncée' : state.color === 'moyen' ? 'moyenne' : 'claire'}`],
-      ['Simulation', `${dateLabel(state.doy)} à ${fmtHour(state.hour)}, ciel clair`],
-      ['Pièce', `${fmt(state.roomArea)} m² (estimation de surchauffe)`],
+      [L('Façade', 'Façade'), L(`${cap(on)} (azimut ${state.facadeAz}°), Paris`, `${cap(on)} (azimuth ${state.facadeAz}°), Paris`)],
+      [L('Fenêtre', 'Window'), L(`${fmt(state.W, 2)} × ${fmt(state.H, 2)} m, tableau de ${Math.round(state.e * 100)} cm`, `${fmt(state.W, 2)} × ${fmt(state.H, 2)} m, ${Math.round(state.e * 100)} cm reveal`)],
+      [L('Vitrage', 'Glazing'), `${gl.label}, g = ${fmt(gl.g, 2)}`],
+      [L('Protection', 'Shading'), state.type === 'none' ? L('aucune', 'none') : `${p.label.toLowerCase()}, ${settingLabel()}, ${L('teinte', 'colour')} ${COLORS[state.color].label.toLowerCase()}`],
+      [L('Simulation', 'Simulation'), L(`${dateLabel(state.doy)} à ${fmtHour(state.hour)}, ciel clair`, `${dateLabel(state.doy)} at ${fmtHour(state.hour)}, clear sky`)],
+      [L('Pièce', 'Room'), L(`${fmt(state.roomArea)} m² (estimation de surchauffe)`, `${fmt(state.roomArea)} m² (overheating estimate)`)],
     ],
   });
 }

@@ -1,3 +1,4 @@
+import './i18n.js'; // les textes traduits doivent être en place avant le découpage en mots
 // Apparitions au défilement et texte du manifeste révélé mot à mot.
 
 const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { sunVectorLocal, foldingLeaves, maskColor } from './shading.js';
+import { L } from './i18n.js';
 
 const WALL_HALF = 3.2;
 const ROOM_HALF = 2.2;
@@ -763,7 +764,7 @@ export class SolarScene {
           const dot = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: INK }));
           dot.position.copy(pos);
           this.sunGroup.add(dot);
-          const lab = textSprite(`${m / 60} h`, 600, 2.1, true);
+          const lab = textSprite(L(`${m / 60} h`, `${m / 60}:00`), 600, 2.1, true);
           lab.position.copy(pos).add(new THREE.Vector3(0, 0.45, 0));
           this.sunGroup.add(lab);
         });
@@ -794,7 +795,7 @@ export class SolarScene {
       );
     }
     this.sunGroup.add(segments(ticks, lineMat()));
-    for (const [t, az] of [['N', 0], ['E', 90], ['S', 180], ['O', 270]]) {
+    for (const [t, az] of [['N', 0], ['E', 90], ['S', 180], [L("O", "W"), 270]]) {
       const s = sunVectorLocal(0, az, facadeAz);
       const lab = textSprite(t, 900, 3.2, true);
       lab.position.set(c.x + s.x * (DOME + 1.1), c.y, c.z + s.z * (DOME + 1.1));
@@ -808,7 +809,7 @@ export class SolarScene {
       const mer = segments([c.x, c.y, c.z, foot.x, foot.y, foot.z, foot.x, foot.y, foot.z, top.x, top.y, top.z], new THREE.LineDashedMaterial({ color: GREY, dashSize: 0.08, gapSize: 0.08 }));
       mer.computeLineDistances();
       this.sunGroup.add(mer);
-      const lab = textSprite(`${noon.altitude.toFixed(0)}° à midi`, 600, 2.4, true);
+      const lab = textSprite(L(`${noon.altitude.toFixed(0)}° à midi`, `${noon.altitude.toFixed(0)}° at noon`), 600, 2.4, true);
       lab.position.copy(top).add(new THREE.Vector3(0, 0.9, 0));
       this.sunGroup.add(lab);
     }

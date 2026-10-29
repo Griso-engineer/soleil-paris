@@ -2,9 +2,12 @@
 
 import { sunPosition, parisLocalToUTC } from './solar.js';
 import { maskColor, MASK_RAMP } from './shading.js';
+import { L, LANG, LOCALE } from './i18n.js';
 
 const NS = 'http://www.w3.org/2000/svg';
-const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+const MONTHS = LANG === 'en'
+  ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  : ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
 function el(tag, attrs = {}, parent) {
   const n = document.createElementNS(NS, tag);
@@ -20,11 +23,11 @@ function svgRoot(container, w, h, label) {
   return svg;
 }
 
-const fmt = (v, d = 0) => v.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
+const fmt = (v, d = 0) => v.toLocaleString(LOCALE, { minimumFractionDigits: d, maximumFractionDigits: d });
 export const fmtHour = (h) => {
   const hh = Math.floor(h + 1e-6);
   const mm = Math.round((h - hh) * 60);
-  return `${String(hh % 24).padStart(2, '0')}h${String(mm === 60 ? 0 : mm).padStart(2, '0')}`;
+  return `${String(hh % 24).padStart(2, '0')}${L('h', ':')}${String(mm === 60 ? 0 : mm).padStart(2, '0')}`;
 };
 
 function niceMax(v) {
@@ -97,14 +100,14 @@ export function maskGradient(dir = '90deg') {
 /** Légende du masque solaire (barre de dégradé 0 → 100 %). */
 export function maskLegendHTML() {
   return `<div class="mask-legend"><span>0 %</span><i style="background:${maskGradient()}"></i><span>100 %</span></div>
-    <p class="mask-caption">Part du vitrage au soleil si le soleil se trouvait dans cette direction du ciel.</p>`;
+    <p class="mask-caption">${L('Part du vitrage au soleil si le soleil se trouvait dans cette direction du ciel.', 'Share of the glazing in direct sun if the sun stood in this direction of the sky.')}</p>`;
 }
 
 export function renderSunPath(container, { year, doy, hour, sun, facadeAz, mask = null }) {
   const S = 340;
   const c = S / 2;
   const R = 140;
-  const svg = svgRoot(container, S, S, 'Diagramme de la course du soleil à Paris');
+  const svg = svgRoot(container, S, S, L('Diagramme de la course du soleil à Paris', 'Sun path diagram for Paris'));
   const proj = (alt, az) => {
     const r = (R * (90 - Math.max(alt, 0))) / 90;
     const a = (az * Math.PI) / 180;
@@ -137,7 +140,7 @@ export function renderSunPath(container, { year, doy, hour, sun, facadeAz, mask 
     const [x, y] = proj(0, az);
     el('line', { x1: c, y1: c, x2: x, y2: y, class: 'sp-ray' }, svg);
   }
-  for (const [t, az] of [['N', 0], ['E', 90], ['S', 180], ['O', 270]]) {
+  for (const [t, az] of [['N', 0], ['E', 90], ['S', 180], [L('O', 'W'), 270]]) {
     const a = (az * Math.PI) / 180;
     el('text', {
       x: c + (R + 14) * Math.sin(a), y: c - (R + 14) * Math.cos(a) + 4,
@@ -171,7 +174,7 @@ export function renderSunPath(container, { year, doy, hour, sun, facadeAz, mask 
   line(dayPath(80), 'sp-ref');
   line(dayPath(355), 'sp-ref');
 
-  const ref = [[172, '21 juin'], [355, '21 déc.']];
+  const ref = [[172, L('21 juin', '21 June')], [355, L('21 déc.', '21 Dec')]];
   for (const [d, label] of ref) {
     const p = sunPosition(parisLocalToUTC(year, d, d === 172 ? 14 : 13));
     const [x, y] = proj(p.altitude, p.azimuth);
@@ -193,7 +196,7 @@ export function renderSunPath(container, { year, doy, hour, sun, facadeAz, mask 
     const [x, y] = proj(sun.altitude, sun.azimuth);
     const dot = el('circle', { cx: x, cy: y, r: 8, class: 'sp-sun' }, svg);
     const hit = el('circle', { cx: x, cy: y, r: 16, fill: 'transparent' }, svg);
-    const html = `<strong>${fmtHour(hour)}</strong><br>Hauteur ${fmt(sun.altitude, 1)}°<br>Azimut ${fmt(sun.azimuth, 1)}°`;
+    const html = `<strong>${fmtHour(hour)}</strong><br>${L('Hauteur', 'Altitude')} ${fmt(sun.altitude, 1)}°<br>${L('Azimut', 'Azimuth')} ${fmt(sun.azimuth, 1)}°`;
     hit.addEventListener('mousemove', (e) => showTip(html, e));
     hit.addEventListener('mouseleave', hideTip);
     void dot;
@@ -244,7 +247,7 @@ export function renderLiveDay(container, { without, withP, hour, area }) {
   const W = 220;
   const H = 92;
   const m = { l: 6, r: 6, t: 14, b: 14 };
-  const svg = svgRoot(container, W, H, 'Chaleur solaire entrant au fil de la journée');
+  const svg = svgRoot(container, W, H, L('Chaleur solaire entrant au fil de la journée', 'Solar heat entering over the day'));
   const a = smoothProfile(without);
   const b = smoothProfile(withP);
   const ymax = niceMax(Math.max(100, ...a.map((p) => p.gain * area)) * 1.05);
@@ -275,7 +278,7 @@ export function renderDayChart(container, { without, withP, hour, area, onPick }
   const m = { l: 48, r: 16, t: 16, b: 30 };
   const iw = W - m.l - m.r;
   const ih = H - m.t - m.b;
-  const svg = svgRoot(container, W, H, 'Puissance solaire entrant par la fenêtre au fil de la journée');
+  const svg = svgRoot(container, W, H, L('Puissance solaire entrant par la fenêtre au fil de la journée', 'Solar power entering through the window over the day'));
 
   const vals = without.map((p) => p.gain * area);
   const ymax = niceMax(Math.max(100, ...vals) * 1.05);
@@ -303,10 +306,10 @@ export function renderDayChart(container, { without, withP, hour, area, onPick }
   const pw = peak(without);
   const pp = peak(withP);
   if (pw.gain * area > ymax * 0.08) {
-    el('text', { x: x(pw.h), y: y(pw.gain * area) - 8, 'text-anchor': 'middle', class: 'direct-label' }, svg).textContent = 'sans protection';
+    el('text', { x: x(pw.h), y: y(pw.gain * area) - 8, 'text-anchor': 'middle', class: 'direct-label' }, svg).textContent = L('sans protection', 'without shading');
   }
   if (pp.gain * area > ymax * 0.08 && Math.abs(y(pp.gain * area) - y(pw.gain * area)) > 18) {
-    el('text', { x: x(pp.h), y: y(pp.gain * area) - 8, 'text-anchor': 'middle', class: 'direct-label' }, svg).textContent = 'avec protection';
+    el('text', { x: x(pp.h), y: y(pp.gain * area) - 8, 'text-anchor': 'middle', class: 'direct-label' }, svg).textContent = L('avec protection', 'with shading');
   }
 
   // Heure courante
@@ -335,9 +338,9 @@ export function renderDayChart(container, { without, withP, hour, area, onPick }
     d2.setAttribute('cx', x(h)); d2.setAttribute('cy', y(a));
     showTip(
       `<strong>${fmtHour(h)}</strong>
-       <div class="tip-row"><span class="sw sw-2"></span>Sans protection<b>${fmt(a)} W</b></div>
-       <div class="tip-row"><span class="sw sw-1"></span>Avec protection<b>${fmt(b)} W</b></div>
-       <div class="tip-note">Cliquer pour se placer à cette heure</div>`,
+       <div class="tip-row"><span class="sw sw-2"></span>${L('Sans protection', 'Without shading')}<b>${fmt(a)} W</b></div>
+       <div class="tip-row"><span class="sw sw-1"></span>${L('Avec protection', 'With shading')}<b>${fmt(b)} W</b></div>
+       <div class="tip-note">${L('Cliquer pour se placer à cette heure', 'Click to jump to this time')}</div>`,
       evt
     );
   });
@@ -353,15 +356,15 @@ export function renderDayChart(container, { without, withP, hour, area, onPick }
 // ---------------------------------------------------------------------------
 
 export function renderMonthChart(container, {
-  data, currentMonth, unit = 'kWh', axisLabel = 'kWh / jour', labels = ['Sans protection', 'Avec protection'], yMax = null,
-  note = (d) => `Soleil au midi : ${fmt(d.noonAlt, 0)}° de hauteur`,
+  data, currentMonth, unit = 'kWh', axisLabel = L('kWh / jour', 'kWh / day'), labels = [L('Sans protection', 'Without shading'), L('Avec protection', 'With shading')], yMax = null,
+  note = (d) => L(`Soleil au midi : ${fmt(d.noonAlt, 0)}° de hauteur`, `Noon sun: ${fmt(d.noonAlt, 0)}° high`),
 }) {
   const W = 640;
   const H = 240;
   const m = { l: 44, r: 12, t: 18, b: 28 };
   const iw = W - m.l - m.r;
   const ih = H - m.t - m.b;
-  const svg = svgRoot(container, W, H, 'Énergie solaire entrant par jour de ciel clair, mois par mois');
+  const svg = svgRoot(container, W, H, L('Énergie solaire entrant par jour de ciel clair, mois par mois', 'Solar energy entering per clear-sky day, month by month'));
   const ymax = yMax ?? niceMax(Math.max(0.5, ...data.map((d) => d.without)) * 1.05);
   const y = (v) => m.t + ih - (v / ymax) * ih;
   for (let k = 0; k <= 4; k++) {
@@ -395,7 +398,7 @@ export function renderMonthChart(container, {
     el('text', { x: cx, y: H - 9, 'text-anchor': 'middle', class: i === currentMonth ? 'tick tick-strong' : 'tick' }, svg).textContent = MONTHS[i];
     const hit = el('rect', { x: cx - band / 2, y: m.t, width: band, height: ih, fill: 'transparent' }, svg);
     hit.addEventListener('mousemove', (evt) => showTip(
-      `<strong>21 ${MONTHS[i].replace('.', '')}</strong>
+      `<strong>${L(`21 ${MONTHS[i].replace(".", "")}`, `21 ${MONTHS[i]}`)}</strong>
        <div class="tip-row"><span class="sw sw-2"></span>${labels[0]}<b>${fmt(d.without, 1)} ${unit}</b></div>
        <div class="tip-row"><span class="sw sw-1"></span>${labels[1]}<b>${fmt(d.withP, 1)} ${unit}</b></div>
        <div class="tip-note">${note(d)}</div>`,
@@ -420,11 +423,11 @@ export function renderComparison(container, rows) {
     const light = Math.max(0, Math.min(1, r.light));
     row.innerHTML = `
       <div class="cmp-name"><span>${r.label}</span><small>${r.setting}</small></div>
-      <div class="cmp-bar" title="Part du rayonnement solaire arrêtée">
+      <div class="cmp-bar" title="${L("Part du rayonnement solaire arrêtée", "Share of solar radiation blocked")}">
         <div class="cmp-fill" style="width:${(blocked * 100).toFixed(1)}%"></div>
         <span class="cmp-val${blocked < 0.18 ? ' out' : ''}"${blocked < 0.18 ? ` style="left:calc(${(blocked * 100).toFixed(1)}% + 6px)"` : ''}>${fmt(blocked * 100)} %</span>
       </div>
-      <div class="cmp-light" title="Lumière naturelle conservée">${fmt(light * 100)} %</div>
+      <div class="cmp-light" title="${L("Lumière naturelle conservée", "Daylight kept")}">${fmt(light * 100)} %</div>
       <div class="cmp-kwh">${fmt(r.kwh, 1)}</div>`;
     list.appendChild(row);
   }

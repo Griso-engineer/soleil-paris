@@ -10,6 +10,8 @@
  *   rows       : [[libellé, valeur], …] description de la configuration
  *   summary    : texte de la protection
  */
+import { L, LOCALE } from './i18n.js';
+
 export function exportReport(ctx) {
   const $ = (id) => document.getElementById(id);
   let el = $('report');
@@ -23,16 +25,16 @@ export function exportReport(ctx) {
     ? { ext: ctx.scene.snapshot('ext', 1600, 1100), coupe: ctx.scene.snapshot('coupe', 1600, 1100) }
     : null;
   const html = (id) => ($(id) ? $(id).innerHTML : '');
-  const today = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  const today = new Date().toLocaleDateString(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' });
 
   el.innerHTML = `
     <section class="rp-page">
       <header class="rp-head">
         <div class="rp-logo">tracés</div>
-        <div class="rp-meta">Fiche protection solaire · Paris<br>${today}</div>
+        <div class="rp-meta">${L('Fiche protection solaire · Paris', 'Solar shading sheet · Paris')}<br>${today}</div>
       </header>
       <div class="rp-title">
-        <span>Soleil &amp; protections</span>
+        <span>${L('Soleil &amp; protections', 'Sun &amp; shading')}</span>
         <h1>${ctx.title}</h1>
         <p>${ctx.setting}</p>
       </div>
@@ -41,12 +43,12 @@ export function exportReport(ctx) {
       </div>
       ${shots ? `
       <div class="rp-views">
-        <figure><img src="${shots.ext}" alt="Axonométrie extérieure"><figcaption><b>Axonométrie</b> depuis la rue</figcaption></figure>
-        <figure><img src="${shots.coupe}" alt="Coupe"><figcaption><b>Coupe</b> par l'axe de la baie</figcaption></figure>
+        <figure><img src="${shots.ext}" alt="${L('Axonométrie extérieure', 'Exterior axonometric view')}"><figcaption>${L("<b>Axonométrie</b> depuis la rue", '<b>Axonometric view</b> from the street')}</figcaption></figure>
+        <figure><img src="${shots.coupe}" alt="${L('Coupe', 'Section')}"><figcaption>${L("<b>Coupe</b> par l'axe de la baie", '<b>Section</b> through the window axis')}</figcaption></figure>
       </div>` : ''}
-      <h2>À l'instant simulé <span>${$('kpiNowLabel')?.textContent ?? ''}</span></h2>
+      <h2>${L("À l'instant simulé", 'At the simulated time')} <span>${$('kpiNowLabel')?.textContent ?? ''}</span></h2>
       <div class="kpis rp-kpis">${html('kpis')}</div>
-      <h2>Sur la journée <span>${$('kpiDayLabel')?.textContent ?? ''}</span></h2>
+      <h2>${L('Sur la journée', 'Over the day')} <span>${$('kpiDayLabel')?.textContent ?? ''}</span></h2>
       <div class="kpis rp-kpis">${html('kpisDay')}</div>
     </section>
 
@@ -55,25 +57,26 @@ export function exportReport(ctx) {
         <div class="rp-logo">tracés</div>
         <div class="rp-meta">${ctx.title}<br>${ctx.setting}</div>
       </header>
-      <h2>En période de canicule <span>25 juillet, ciel clair</span></h2>
+      <h2>${L('En période de canicule', 'During a heatwave')} <span>${L('25 juillet, ciel clair', '25 July, clear sky')}</span></h2>
       <div class="kpis kpis-heat rp-kpis">${html('kpisHeat')}</div>
-      <h2>Chaleur solaire entrant par la fenêtre <span>${$('kpiDayLabel')?.textContent ?? ''}</span></h2>
-      <div class="rp-legend"><span><i class="sw sw-2"></i>Sans protection</span><span><i class="sw sw-1"></i>Avec protection</span></div>
+      <h2>${L('Chaleur solaire entrant par la fenêtre', 'Solar heat entering through the window')} <span>${$('kpiDayLabel')?.textContent ?? ''}</span></h2>
+      <div class="rp-legend"><span><i class="sw sw-2"></i>${L('Sans protection', 'Without shading')}</span><span><i class="sw sw-1"></i>${L('Avec protection', 'With shading')}</span></div>
       <div class="rp-chart">${html('dayChart')}</div>
-      <h2>Au fil de l'année <span>énergie entrant par jour de ciel clair, le 21 de chaque mois</span></h2>
+      <h2>${L("Au fil de l'année", 'Through the year')} <span>${L('énergie entrant par jour de ciel clair, le 21 de chaque mois', 'energy entering per clear-sky day, on the 21st of each month')}</span></h2>
       <div class="rp-chart rp-chart-sm">${html('monthChart')}</div>
-      <h2>Comparaison avec les autres protections <span>même fenêtre, même journée</span></h2>
-      <div class="cmp-head"><span>Protection</span><span>Rayonnement arrêté</span><span>Lumière</span><span>kWh/j</span></div>
+      <h2>${L('Comparaison avec les autres protections', 'Comparison with other shading devices')} <span>${L('même fenêtre, même journée', 'same window, same day')}</span></h2>
+      <div class="cmp-head"><span>${L('Protection', 'Shading')}</span><span>${L('Rayonnement arrêté', 'Radiation blocked')}</span><span>${L('Lumière', 'Daylight')}</span><span>${L('kWh/j', 'kWh/day')}</span></div>
       <div class="rp-cmp">${html('comparison')}</div>
       <div class="rp-cols">
         <div>
-          <h2>À retenir</h2>
+          <h2>${L('À retenir', 'Key points')}</h2>
           <p class="rp-text">${ctx.summary}</p>
           <div class="rp-insights">${html('insights')}</div>
         </div>
         <div>
-          <h2>Méthode</h2>
-          <p class="rp-text">Position du soleil NOAA, ciel clair ASHRAE (journées sans nuages : enveloppe haute des apports). Ombrage par lancer de rayons sur la géométrie de la baie et de la protection ; apports selon la NF EN ISO 52022-1. F<sub>c</sub> = g<sub>tot</sub> avec / g<sub>tot</sub> sans protection. Porosité : part de la baie libre vue de face. Surchauffe évitée : ordre de grandeur rapporté à l'inertie de la pièce. Hors modèle : masques lointains, météo réelle, ventilation. Outil de comparaison, pas de dimensionnement.</p>
+          <h2>${L('Méthode', 'Method')}</h2>
+          <p class="rp-text">${L("Position du soleil NOAA, ciel clair ASHRAE (journées sans nuages : enveloppe haute des apports). Ombrage par lancer de rayons sur la géométrie de la baie et de la protection ; apports selon la NF EN ISO 52022-1. F<sub>c</sub> = g<sub>tot</sub> avec / g<sub>tot</sub> sans protection. Porosité : part de la baie libre vue de face. Surchauffe évitée : ordre de grandeur rapporté à l'inertie de la pièce. Hors modèle : masques lointains, météo réelle, ventilation. Outil de comparaison, pas de dimensionnement.",
+            'NOAA sun position, ASHRAE clear sky (cloudless days: upper bound of gains). Shading by ray casting on the geometry of the opening and the device; gains per EN ISO 52022-1. F<sub>c</sub> = g<sub>tot</sub> with / g<sub>tot</sub> without shading. Porosity: share of the opening left free, seen face on. Overheating avoided: order of magnitude based on the room thermal mass. Not modelled: distant obstructions, real weather, ventilation. A comparison tool, not a sizing tool.')}</p>
         </div>
       </div>
       <footer class="rp-foot">
@@ -96,7 +99,7 @@ export function exportReport(ctx) {
         window.removeEventListener('afterprint', done);
       };
       window.addEventListener('afterprint', done);
-      document.title = `Tracés - ${ctx.title} - fiche protection solaire`;
+      document.title = `Tracés - ${ctx.title} - ${L("fiche protection solaire", "solar shading sheet")}`;
       window.print();
     });
 }

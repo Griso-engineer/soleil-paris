@@ -13,63 +13,70 @@
 // extérieure : g_tot = τ·g + α·G/G2 + τ·(1−g)·G/G1.
 
 import { RAD, clearSky, sunPosition, parisLocalToUTC } from './solar.js';
+import { L } from './i18n.js';
 
 export const GLAZINGS = {
-  simple: { label: 'Simple vitrage', g: 0.85, tv: 0.90, ug: 5.8 },
-  double: { label: 'Double vitrage', g: 0.63, tv: 0.80, ug: 2.8 },
-  doubleFE: { label: 'Double vitrage faiblement émissif', g: 0.55, tv: 0.78, ug: 1.1 },
-  controle: { label: 'Double vitrage à contrôle solaire', g: 0.35, tv: 0.65, ug: 1.1 },
-  triple: { label: 'Triple vitrage', g: 0.47, tv: 0.70, ug: 0.7 },
+  simple: { label: L('Simple vitrage', 'Single glazing'), g: 0.85, tv: 0.90, ug: 5.8 },
+  double: { label: L('Double vitrage', 'Double glazing'), g: 0.63, tv: 0.80, ug: 2.8 },
+  doubleFE: { label: L('Double vitrage faiblement émissif', 'Low-e double glazing'), g: 0.55, tv: 0.78, ug: 1.1 },
+  controle: { label: L('Double vitrage à contrôle solaire', 'Solar-control double glazing'), g: 0.35, tv: 0.65, ug: 1.1 },
+  triple: { label: L('Triple vitrage', 'Triple glazing'), g: 0.47, tv: 0.70, ug: 0.7 },
 };
 
 export const COLORS = {
-  clair: { label: 'Claire', rho: 0.65, hex: '#e9e4d8' },
-  moyen: { label: 'Moyenne', rho: 0.40, hex: '#9a958a' },
-  fonce: { label: 'Foncée', rho: 0.12, hex: '#3b3a37' },
+  clair: { label: L('Claire', 'Light'), rho: 0.65, hex: '#e9e4d8' },
+  moyen: { label: L('Moyenne', 'Medium'), rho: 0.40, hex: '#9a958a' },
+  fonce: { label: L('Foncée', 'Dark'), rho: 0.12, hex: '#3b3a37' },
 };
 
 export const PROTECTIONS = {
   none: {
-    label: 'Aucune',
-    short: 'Fenêtre nue',
-    view: 'Totale',
-    text: "Référence : la fenêtre n'est protégée que par la profondeur de son tableau.",
+    label: L('Aucune', 'None'),
+    short: L('Fenêtre nue', 'Bare window'),
+    view: L('Totale', 'Full'),
+    text: L("Référence : la fenêtre n'est protégée que par la profondeur de son tableau.", 'Reference: the window is shaded only by the depth of its reveal.'),
   },
   battants: {
-    label: 'Volets battants',
-    short: 'Deux vantaux pivotant sur gonds',
-    view: 'Nulle fermés, totale ouverts',
-    text: "Fermés, ils bloquent presque tout. Ouverts à 90°, les vantaux jouent le rôle d'ailettes verticales et coupent le soleil rasant d'est ou d'ouest. Persiennés, ils laissent passer air et lumière diffuse.",
+    label: L('Volets battants', 'Hinged shutters'),
+    short: L('Deux vantaux pivotant sur gonds', 'Two leaves turning on hinges'),
+    view: L('Nulle fermés, totale ouverts', 'None when closed, full when open'),
+    text: L("Fermés, ils bloquent presque tout. Ouverts à 90°, les vantaux jouent le rôle d'ailettes verticales et coupent le soleil rasant d'est ou d'ouest. Persiennés, ils laissent passer air et lumière diffuse.",
+      'Closed, they block almost everything. Open at 90°, the leaves act as vertical fins and cut the low sun from the east or west. With louvres, they let air and diffuse light through.'),
   },
   accordeon: {
-    label: 'Volets pliants',
-    short: 'Feuilles articulées repliées dans le tableau',
-    view: 'Nulle fermés, totale repliés',
-    text: "Persiennes repliables : de chaque côté, deux ou trois feuilles étroites articulées entre elles se replient en zigzag dans l'épaisseur du tableau. Fermées, elles couvrent la baie comme des volets battants ; à mi-course, leurs feuilles obliques font ailettes.",
+    label: L('Volets pliants', 'Folding shutters'),
+    short: L('Feuilles articulées repliées dans le tableau', 'Hinged panels folding into the reveal'),
+    view: L('Nulle fermés, totale repliés', 'None when closed, full when folded'),
+    text: L("Persiennes repliables : de chaque côté, deux ou trois feuilles étroites articulées entre elles se replient en zigzag dans l'épaisseur du tableau. Fermées, elles couvrent la baie comme des volets battants ; à mi-course, leurs feuilles obliques font ailettes.",
+      'Folding louvred shutters: on each side, two or three narrow hinged panels fold in a zigzag into the depth of the reveal. Closed, they cover the opening like hinged shutters; half-way, their slanted panels act as fins.'),
   },
   roulant: {
-    label: 'Volet roulant',
-    short: 'Tablier de lames descendant du haut',
-    view: 'Nulle sur la partie fermée',
-    text: "Très efficace sur la partie fermée, mais il faut choisir entre soleil et obscurité. Des lames ajourées laissent filtrer un peu de lumière une fois le tablier en bas.",
+    label: L('Volet roulant', 'Roller shutter'),
+    short: L('Tablier de lames descendant du haut', 'Slatted curtain coming down from the top'),
+    view: L('Nulle sur la partie fermée', 'None over the closed part'),
+    text: L('Très efficace sur la partie fermée, mais il faut choisir entre soleil et obscurité. Des lames ajourées laissent filtrer un peu de lumière une fois le tablier en bas.',
+      'Very effective over the closed part, but it is a choice between sun and darkness. Perforated slats let a little light through once fully lowered.'),
   },
   bso: {
-    label: 'Brise-soleil orientable',
-    short: 'Lames orientables (BSO, store vénitien extérieur)',
-    view: 'Partielle, réglable',
-    text: "Les lames s'orientent pour bloquer le rayonnement direct tout en renvoyant la lumière du jour. C'est la protection mobile la plus fine à régler.",
+    label: L('Brise-soleil orientable', 'Adjustable louvres'),
+    short: L('Lames orientables (BSO, store vénitien extérieur)', 'Tilting slats (external venetian blind)'),
+    view: L('Partielle, réglable', 'Partial, adjustable'),
+    text: L("Les lames s'orientent pour bloquer le rayonnement direct tout en renvoyant la lumière du jour. C'est la protection mobile la plus fine à régler.",
+      'The slats tilt to block direct radiation while reflecting daylight inside. It is the most finely adjustable movable shading.'),
   },
   screen: {
-    label: 'Store toile (screen)',
-    short: 'Toile micro-perforée verticale',
-    view: 'Conservée, voilée',
-    text: "La toile filtre le rayonnement en gardant une vue vers l'extérieur. Le coefficient d'ouverture fixe le compromis entre protection et transparence.",
+    label: L('Store toile (screen)', 'Fabric screen'),
+    short: L('Toile micro-perforée verticale', 'Vertical micro-perforated fabric'),
+    view: L('Conservée, voilée', 'Kept, veiled'),
+    text: L("La toile filtre le rayonnement en gardant une vue vers l'extérieur. Le coefficient d'ouverture fixe le compromis entre protection et transparence.",
+      'The fabric filters radiation while keeping a view outside. Its openness factor sets the balance between protection and transparency.'),
   },
   banne: {
-    label: 'Store banne',
-    short: 'Toile inclinée en surplomb',
-    view: 'Totale',
-    text: "Projetée au-dessus de la fenêtre, la toile arrête le soleil haut du sud mais devient inefficace face au soleil bas du matin et du soir.",
+    label: L('Store banne', 'Awning'),
+    short: L('Toile inclinée en surplomb', 'Sloping fabric overhang'),
+    view: L('Totale', 'Full'),
+    text: L('Projetée au-dessus de la fenêtre, la toile arrête le soleil haut du sud mais devient inefficace face au soleil bas du matin et du soir.',
+      'Projected above the window, the fabric stops the high southern sun but becomes ineffective against the low morning and evening sun.'),
   },
 };
 
