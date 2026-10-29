@@ -117,6 +117,39 @@ export class SolarScene {
     this.updateFrustum();
   }
 
+  /**
+   * Image PNG d'une vue, rendue hors écran à la taille demandée (pour l'export).
+   * La vue, la caméra et la taille du canevas de l'utilisateur sont restaurées ensuite.
+   */
+  snapshot(view, width = 1600, height = 1000, zoom = 1.6) {
+    const saved = {
+      view: this.view, pos: this.camera.position.clone(), target: this.controls.target.clone(),
+      zoom: this.camera.zoom, half: this.viewHalf, aspect: this.aspect,
+      size: this.renderer.getSize(new THREE.Vector2()), ratio: this.renderer.getPixelRatio(),
+    };
+    this.renderer.setPixelRatio(1);
+    this.renderer.setSize(width, height, false);
+    this.aspect = width / height;
+    this.setView(view);
+    // cadrage plus serré que la vue d'écran, pour que le bâtiment occupe l'image
+    this.camera.zoom = zoom;
+    this.camera.updateProjectionMatrix();
+    this.renderer.render(this.scene, this.camera);
+    const url = this.renderer.domElement.toDataURL('image/png');
+    // restauration
+    this.renderer.setPixelRatio(saved.ratio);
+    this.renderer.setSize(saved.size.x, saved.size.y, false);
+    this.aspect = saved.aspect;
+    this.setView(saved.view);
+    this.camera.position.copy(saved.pos);
+    this.controls.target.copy(saved.target);
+    this.camera.zoom = saved.zoom;
+    this.viewHalf = saved.half;
+    this.updateFrustum();
+    this.controls.update();
+    return url;
+  }
+
   updateFrustum() {
     const half = this.viewHalf || 3.2;
     const a = this.aspect || 1.6;
@@ -136,7 +169,7 @@ export class SolarScene {
       // pièce vue d'en haut, plafond et deux murs ôtés
       int: { dir: [0.9, 1.25, -1.05], target: [0, 0.9, -1.9], half: 3.3 },
       // coupe par l'axe de la fenêtre
-      coupe: { dir: [1, 0.42, 0.32], target: [0, 3.4, 1.4], half: 7.0 },
+      coupe: { dir: [1, 0.62, 0.3], target: [0.6, 2.2, -0.8], half: 6.6 },
     };
     const v = views[view];
     const d = new THREE.Vector3(...v.dir).normalize().multiplyScalar(30);
@@ -191,6 +224,13 @@ export class SolarScene {
         }
       });
     }
+    // La pièce et ses hachures latérales ne sont jamais coupées par l'axe de la baie
+    const keep = (o) => {
+      if (!o.material) return;
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) m.clippingPlanes = [];
+    };
+    if (this.room) this.room.traverse(keep);
+    if (this.section) for (const s of this.section.children) if (s.position.x > 0.5) s.traverse(keep);
   }
 
   // ---------- Bâtiment ----------
@@ -267,24 +307,29 @@ export class SolarScene {
     contLines.computeLineDistances();
     g.add(contLines);
 
-    // --- Pièce ---
-    box(g, -ROOM_HALF, ROOM_HALF, -SLAB, 0, -ROOM_DEPTH, INNER, floorMat); // plancher
+    // --- Pièce (groupe à part : en vue Coupe, elle n'est pas coupée par l'axe de la baie) ---
+    const rg = new THREE.Group();
+    g.add(rg);
+    this.room = rg;
+    const roomStone = paper();
+    box(rg, -ROOM_HALF, ROOM_HALF, -SLAB, 0, -ROOM_DEPTH, INNER, floorMat); // plancher
     // matériaux propres aux parois ôtables (voir applyHidden)
-    const ceiling = box(g, -ROOM_HALF, ROOM_HALF, CEIL, CEIL + SLAB, -ROOM_DEPTH, INNER, paper());
-    const back = box(g, -ROOM_HALF, ROOM_HALF, -SLAB, CEIL + SLAB, -ROOM_DEPTH - 0.15, -ROOM_DEPTH, paper());
-    box(g, -ROOM_HALF - 0.15, -ROOM_HALF, -SLAB, CEIL + SLAB, -ROOM_DEPTH - 0.15, INNER, stone);
-    const right = box(g, ROOM_HALF, ROOM_HALF + 0.15, -SLAB, CEIL + SLAB, -ROOM_DEPTH - 0.15, INNER, paper());
+    const ceiling = box(rg, -ROOM_HALF, ROOM_HALF, CEIL, CEIL + SLAB, -ROOM_DEPTH, INNER, paper());
+    const back = box(rg, -ROOM_HALF, ROOM_HALF, -SLAB, CEIL + SLAB, -ROOM_DEPTH - 0.15, -ROOM_DEPTH, paper());
+    box(rg, -ROOM_HALF - 0.15, -ROOM_HALF, -SLAB, CEIL + SLAB, -ROOM_DEPTH - 0.15, INNER, roomStone);
+    const right = box(rg, ROOM_HALF, ROOM_HALF + 0.15, -SLAB, CEIL + SLAB, -ROOM_DEPTH - 0.15, INNER, paper());
     this.hidden.int.push(ceiling, back, right);
+    this.hidden.coupe.push(right);
 
     // Parquet à l'anglaise : lames parallèles à la façade
     const planks = [];
     for (let z = INNER - 0.14; z > -ROOM_DEPTH; z -= 0.14) planks.push(-ROOM_HALF, 0.002, z, ROOM_HALF, 0.002, z);
-    g.add(segments(planks, greyLine()));
+    rg.add(segments(planks, greyLine()));
     // Plinthes
-    box(g, -ROOM_HALF, -ROOM_HALF + 0.015, 0, 0.1, -ROOM_DEPTH, INNER, stone, { cast: false });
-    box(g, -ROOM_HALF, ROOM_HALF, 0, 0.1, -ROOM_DEPTH, -ROOM_DEPTH + 0.015, stone, { cast: false });
+    box(rg, -ROOM_HALF, -ROOM_HALF + 0.015, 0, 0.1, -ROOM_DEPTH, INNER, roomStone, { cast: false });
+    box(rg, -ROOM_HALF, ROOM_HALF, 0, 0.1, -ROOM_DEPTH, -ROOM_DEPTH + 0.015, roomStone, { cast: false });
 
-    this.addBedroom(g, stone);
+    this.addBedroom(rg, roomStone);
 
     // --- Menuiserie : fenêtre à la française, deux vantaux à grand vitrage ---
     const wood = paper(0xffffff);
@@ -320,9 +365,11 @@ export class SolarScene {
     this.glass.castShadow = false;
     g.add(this.glass);
 
-    // Hachures des parties coupées, visibles en vue Coupe
+    // Hachures des parties coupées, visibles en vue Coupe. La coupe est brisée :
+    // la façade est coupée dans l'axe de la baie (x = 0), la pièce au droit de son
+    // mur latéral (x = ROOM_HALF), pour voir toute la chambre et la tache de soleil.
     this.section = new THREE.Group();
-    const cut = (z0, z1, ya, yb) => {
+    const cut = (z0, z1, ya, yb, x = 0) => {
       const tex = hatchTexture();
       tex.repeat.set((z1 - z0) / 0.4, (yb - ya) / 0.4);
       const m = new THREE.Mesh(
@@ -330,16 +377,17 @@ export class SolarScene {
         new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide })
       );
       m.rotation.y = Math.PI / 2;
-      m.position.set(0, (ya + yb) / 2, (z0 + z1) / 2);
+      m.position.set(x, (ya + yb) / 2, (z0 + z1) / 2);
       const outline = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), lineMat());
       m.add(outline);
       this.section.add(m);
     };
     cut(INNER, e, WALL_BOTTOM, sill);
     cut(INNER, e, top, WALL_TOP);
-    cut(-ROOM_DEPTH, INNER, -SLAB, 0);
-    cut(-ROOM_DEPTH, INNER, CEIL, CEIL + SLAB);
-    cut(-ROOM_DEPTH - 0.15, -ROOM_DEPTH, -SLAB, CEIL + SLAB);
+    const xr = ROOM_HALF + 0.003;
+    cut(-ROOM_DEPTH, INNER, -SLAB, 0, xr);
+    cut(-ROOM_DEPTH, INNER, CEIL, CEIL + SLAB, xr);
+    cut(-ROOM_DEPTH - 0.15, -ROOM_DEPTH, -SLAB, CEIL + SLAB, xr);
     g.add(this.section);
 
     // --- Cotes en millimètres ---

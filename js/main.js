@@ -1,8 +1,9 @@
 import { sunPosition, parisLocalToUTC, sunTimes, dayOfYearToDate, isSummerTime } from './solar.js';
 import {
-  GLAZINGS, PROTECTIONS, defaultConfig, makeModel, evaluate, dailyProfile, integrate,
+  GLAZINGS, PROTECTIONS, defaultConfig, makeModel, evaluate, dailyProfile, integrate, porosity,
 } from './shading.js';
 import { SolarScene } from './scene3d.js';
+import { exportReport } from './report.js';
 import {
   renderSunPath, renderDayChart, renderMonthChart, renderComparison, fmtHour, fmt, MONTHS,
 } from './charts.js';
@@ -19,6 +20,7 @@ const state = {
   facadeAz: 180,
   type: 'battants',
   openAngle: 55,
+  roomArea: 20, // m², pour l'estimation de surchauffe en canicule
   doy: 202,
   hour: 14,
   view: 'ext',
@@ -49,6 +51,7 @@ let model = null;
 let ref = null;
 let dayData = null;
 let monthData = null;
+let heatData = null;
 
 // ---------------------------------------------------------------------------
 // Construction des contrôles
@@ -95,6 +98,7 @@ const sliders = {
   W: (v) => `${fmt(v, 2)} m`,
   H: (v) => `${fmt(v, 2)} m`,
   e: (v) => `${Math.round(v * 100)} cm`,
+  roomArea: (v) => `${v} m²`,
   deploy: (v) => `${Math.round(v * 100)} %`,
   slatAngle: (v) => `${v}°`,
   openAngle: (v) => `${v}°`,
@@ -153,7 +157,7 @@ function set(patch) {
   syncControls();
   if (geom) recomputeModels();
   if (geom || day) recomputeDay();
-  if (geom || changed(['doy'])) scheduleSlow();
+  if (geom || changed(['doy', 'roomArea'])) scheduleSlow();
   if (changed(['view']) && scene) scene.setView(state.view);
   updateInstant();
   writeURL();
@@ -279,6 +283,31 @@ function recomputeSlow() {
       noonAlt: Math.max(...a.map((p) => p.alt)),
     });
   }
+  // Canicule : journée type de fin juillet, ciel clair
+  {
+    const a = integrate(dailyProfile(refLow, YEAR, CANICULE_DOY, 15), 'gain') * area * 1000;
+    const b = integrate(dailyProfile(curLow, YEAR, CANICULE_DOY, 15), 'gain') * area * 1000;
+    const avoided = Math.max(0, a - b);
+    const rise = heatwaveRise(avoided, state.roomArea);
+    const r1 = (v) => fmt(v, v < 10 ? 1 : 0);
+    $('kpisHeat').innerHTML = `
+      <div class="kpi hero">
+        <div class="k-label">Montée de température évitée</div>
+        <div class="k-value">${avoided < 1 ? '0' : `${r1(rise.low)} à ${r1(rise.high)}`}<small>°C</small></div>
+        <div class="k-note">pièce de <b>${fmt(state.roomArea)} m²</b>, sur la journée</div>
+      </div>
+      <div class="kpi">
+        <div class="k-label">Chaleur solaire évitée</div>
+        <div class="k-value">${fmt(avoided)}<small>Wh</small></div>
+        <div class="k-note">sans protection : <b>${fmt(a)} Wh</b> entrent</div>
+      </div>
+      <div class="kpi kpi-wide">
+        <div class="k-label">Hypothèses</div>
+        <div class="k-note">La chaleur évitée est rapportée à la capacité thermique de la pièce. Valeur basse : murs lourds (pierre, 260 kJ/m²K) et 40 % de la chaleur évacuée par la ventilation. Valeur haute : inertie moyenne (165 kJ/m²K) et 10 % évacuée. C'est un ordre de grandeur, pas une simulation thermique dynamique.</div>
+      </div>`;
+    heatData = { avoided, a, b, rise };
+  }
+
   const curMonth = dayOfYearToDate(YEAR, state.doy).getUTCMonth();
   renderMonthChart($('monthChart'), { data: monthData, currentMonth: curMonth });
   $('monthTable').innerHTML = `<table><thead><tr><th>Mois</th><th>Sans (kWh/j)</th><th>Avec (kWh/j)</th><th>Arrêté</th></tr></thead><tbody>${
@@ -336,9 +365,13 @@ function settingLabel() {
 // Valeurs instantanées
 // ---------------------------------------------------------------------------
 
-// Quatre indicateurs au même format, pour l'instant choisi comme pour la journée.
+// Six indicateurs au même format, pour l'instant choisi comme pour la journée.
+// Fc (facteur d'ombrage du dispositif) = gtot avec protection / gtot sans protection,
+// pour la même fenêtre, le même tableau et le même soleil : 1 = sans effet, 0 = tout arrêté.
 function renderKpis(el, d) {
   const gl = GLAZINGS[state.glazing];
+  const pct = (v) => (v === null ? '—' : `${fmt(v * 100)}<small>%</small>`);
+  const poro = porosity(configOf(state));
   el.innerHTML = `
     <div class="kpi hero">
       <div class="k-label">${d.heatLabel}</div>
@@ -347,8 +380,13 @@ function renderKpis(el, d) {
     </div>
     <div class="kpi">
       <div class="k-label">Rayonnement arrêté</div>
-      <div class="k-value">${d.reduction === null ? '—' : `${fmt(d.reduction * 100)}<small>%</small>`}</div>
+      <div class="k-value">${pct(d.reduction)}</div>
       <div class="meter"><i style="width:${d.reduction === null ? 0 : Math.max(0, d.reduction * 100)}%"></i></div>
+    </div>
+    <div class="kpi">
+      <div class="k-label">Facteur d'ombrage F<sub>c</sub> du dispositif</div>
+      <div class="k-value">${d.reduction === null ? '—' : fmt(Math.max(0, 1 - d.reduction), 2)}</div>
+      <div class="k-note">g<sub>tot</sub> avec / g<sub>tot</sub> sans protection</div>
     </div>
     <div class="kpi">
       <div class="k-label">Facteur solaire global g<sub>tot</sub></div>
@@ -357,9 +395,28 @@ function renderKpis(el, d) {
     </div>
     <div class="kpi">
       <div class="k-label">Lumière naturelle conservée</div>
-      <div class="k-value">${d.light === null ? '—' : `${fmt(d.light * 100)}<small>%</small>`}</div>
+      <div class="k-value">${pct(d.light)}</div>
       <div class="k-note">vue : <b>${PROTECTIONS[state.type].view.toLowerCase()}</b></div>
+    </div>
+    <div class="kpi">
+      <div class="k-label">Porosité, vue de face</div>
+      <div class="k-value">${pct(poro)}</div>
+      <div class="k-note">de la baie laissée libre pour la ventilation</div>
     </div>`;
+}
+
+// Surchauffe évitée en canicule : la chaleur solaire évitée sur une journée de canicule
+// est rapportée à la capacité thermique de la pièce. Fourchette entre une hypothèse
+// basse (inertie lourde, 40 % de la chaleur évacuée par ventilation et parois) et une
+// hypothèse haute (inertie moyenne, 10 % évacuée). Ordre de grandeur, pas un calcul STD.
+const CANICULE_DOY = 206; // 25 juillet
+const INERTIA = { heavy: 260, medium: 165 }; // kJ/(m²·K) de plancher, classes NF EN ISO 13790
+function heatwaveRise(avoidedWh, floor) {
+  const cap = (kj) => (kj * floor) / 3.6; // Wh/K
+  return {
+    low: (avoidedWh * 0.6) / cap(INERTIA.heavy),
+    high: (avoidedWh * 0.9) / cap(INERTIA.medium),
+  };
 }
 
 let lastSunPath = 0;
@@ -575,7 +632,7 @@ $('play').addEventListener('click', () => {
 // Lien partageable : l'état est conservé dans l'URL
 // ---------------------------------------------------------------------------
 
-const URL_KEYS = { ...Object.fromEntries(GEOMETRY_KEYS.map((k) => [k, k])), doy: 'doy', hour: 'hour', view: 'view' };
+const URL_KEYS = { ...Object.fromEntries(GEOMETRY_KEYS.map((k) => [k, k])), roomArea: 'roomArea', doy: 'doy', hour: 'hour', view: 'view' };
 
 function writeURL() {
   const p = new URLSearchParams();
@@ -586,7 +643,7 @@ function writeURL() {
 function readURL() {
   const p = new URLSearchParams(location.search);
   const d = defaultConfig();
-  for (const k of [...GEOMETRY_KEYS_INIT(), 'doy', 'hour', 'view']) {
+  for (const k of [...GEOMETRY_KEYS_INIT(), 'roomArea', 'doy', 'hour', 'view']) {
     if (!p.has(k)) continue;
     const v = p.get(k);
     const sample = k in d ? d[k] : state[k];
@@ -608,6 +665,37 @@ function GEOMETRY_KEYS_INIT() {
 }
 
 // ---------------------------------------------------------------------------
+// Export PDF de la fiche protection
+// ---------------------------------------------------------------------------
+
+$('exportPdf').addEventListener('click', (evt) => exportSheet(evt.altKey));
+
+// Alt + clic, ou l'adresse se terminant par #fiche : aperçu de la fiche à l'écran, sans imprimer
+function exportSheet(preview = false) {
+  // Les blocs différés (bilan mensuel, comparatif, canicule) doivent être à jour
+  clearTimeout(slowTimer);
+  recomputeSlow();
+  const p = PROTECTIONS[state.type];
+  const gl = GLAZINGS[state.glazing];
+  const on = orientationName(state.facadeAz);
+  exportReport({
+    scene,
+    preview,
+    title: p.label,
+    setting: state.type === 'none' ? 'fenêtre sans protection' : settingLabel(),
+    summary: p.text,
+    rows: [
+      ['Façade', `${on.charAt(0).toUpperCase()}${on.slice(1)} (azimut ${state.facadeAz}°), Paris`],
+      ['Fenêtre', `${fmt(state.W, 2)} × ${fmt(state.H, 2)} m, tableau de ${Math.round(state.e * 100)} cm`],
+      ['Vitrage', `${gl.label}, g = ${fmt(gl.g, 2)}`],
+      ['Protection', state.type === 'none' ? 'aucune' : `${p.label.toLowerCase()}, ${settingLabel()}, teinte ${state.color === 'fonce' ? 'foncée' : state.color === 'moyen' ? 'moyenne' : 'claire'}`],
+      ['Simulation', `${dateLabel(state.doy)} à ${fmtHour(state.hour)}, ciel clair`],
+      ['Pièce', `${fmt(state.roomArea)} m² (estimation de surchauffe)`],
+    ],
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Démarrage
 // ---------------------------------------------------------------------------
 
@@ -617,3 +705,4 @@ recomputeDay();
 if (scene) scene.setView(state.view);
 updateInstant(true);
 recomputeSlow();
+if (location.hash === '#fiche') exportSheet(true);

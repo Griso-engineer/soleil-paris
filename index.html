@@ -98,6 +98,11 @@
             <label for="glazing">Vitrage</label>
             <select id="glazing"></select>
           </div>
+          <div class="field">
+            <label for="roomArea">Surface de la pièce <output id="roomAreaOut"></output></label>
+            <input type="range" id="roomArea" min="8" max="40" step="1">
+            <p class="hint">Sert à estimer la surchauffe évitée en canicule.</p>
+          </div>
         </section>
 
         <section class="group">
@@ -157,6 +162,14 @@
             </div>
           </div>
         </section>
+
+        <section class="group">
+          <button type="button" class="export" id="exportPdf">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+            Exporter la fiche PDF
+          </button>
+          <p class="hint">Deux pages A4 pour la protection et le réglage choisis. Dans la fenêtre d'impression, choisissez « Enregistrer au format PDF ».</p>
+        </section>
       </aside>
 
       <!-- Vue & temps -->
@@ -205,6 +218,10 @@
         <section class="kpi-block">
           <h3>Performance sur la journée entière <span id="kpiDayLabel"></span></h3>
           <div class="kpis" id="kpisDay"></div>
+        </section>
+        <section class="kpi-block">
+          <h3>En période de canicule <span>25 juillet, ciel clair</span></h3>
+          <div class="kpis kpis-heat" id="kpisHeat"></div>
         </section>
 
         <article class="card span-2">

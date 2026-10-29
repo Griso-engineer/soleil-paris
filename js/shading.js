@@ -388,6 +388,45 @@ const HEMI = (() => {
  * Prépare un « modèle » réutilisable pour une configuration : géométrie,
  * facteurs diffus ciel / sol précalculés, et calcul direct pour n'importe quel soleil.
  */
+/**
+ * Porosité vue en élévation : part de la baie qui reste libre quand on la regarde
+ * de face (perpendiculairement à la façade), pour la protection et sa position.
+ * C'est l'ordre de grandeur de la section offerte à la ventilation naturelle.
+ * Renvoie une fraction 0 → 1.
+ */
+export function porosity(cfg) {
+  const { W, H, e } = cfg;
+  const d = Math.max(0, Math.min(1, cfg.deploy));
+  const gap = (slat, betaDeg) => Math.max(0, 1 - (slat.w * Math.abs(Math.sin(betaDeg * RAD))) / slat.s);
+  const persienne = gap(PERSIENNE, PERSIENNE.beta);
+  const leafPorosity = cfg.louvered ? persienne : 0;
+  switch (cfg.type) {
+    case 'roulant': return 1 - d + (cfg.ajoure && d >= 0.999 ? 0.04 : 0);
+    case 'bso': return 1 - d + d * gap(BSO_SLAT, cfg.slatAngle);
+    case 'screen': return 1 - d + (d * cfg.openness) / 100;
+    case 'battants': {
+      // Projection des vantaux sur la baie : L·cos(a) de chaque côté, nulle au-delà de 90°
+      const cover = Math.max(0, Math.cos(cfg.openAngle * RAD));
+      return 1 - cover * (1 - leafPorosity);
+    }
+    case 'accordeon': {
+      // Projection des feuilles en zigzag : W·cos(θ) au total
+      const leaves = foldingLeaves(cfg);
+      const cover = leaves.reduce((s, l) => s + Math.abs(l.dir.x) * l.L, 0) / W;
+      return 1 - Math.min(1, cover) * (1 - leafPorosity);
+    }
+    case 'banne': {
+      // La toile et son lambrequin masquent le haut de la baie vus de face
+      const P = cfg.bannePro * d;
+      const drop = P * Math.sin(cfg.banneAngle * RAD) + (P > 0.02 ? 0.2 : 0) - 0.25;
+      return 1 - Math.max(0, Math.min(H, drop)) / H;
+    }
+    default:
+      void e;
+      return 1;
+  }
+}
+
 export function makeModel(cfg, gridN = 12) {
   const geo = buildGeometry(cfg);
   const glz = glazingParams(cfg);

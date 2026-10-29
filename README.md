@@ -33,6 +33,11 @@ ou `npx serve` font la même chose.
 | `js/scene3d.js` | Vue 3D Three.js : pièce, façade, protection, ombres portées |
 | `js/charts.js` | Graphiques SVG : courbe du jour, bilan mensuel, diagramme solaire, comparatif |
 | `js/main.js` | État, contrôles, enchaînement des calculs, lien partageable (URL) |
+| `js/report.js` | Fiche PDF d'une protection (2 pages A4, via l'impression du navigateur) |
+
+Fiche PDF : bouton « Exporter la fiche PDF », puis « Enregistrer au format PDF »
+dans la boîte d'impression. Alt + clic, ou une adresse se terminant par `#fiche`,
+affiche l'aperçu à l'écran sans imprimer.
 
 L'état complet (orientation, fenêtre, protection, date, heure, vue) est stocké
 dans l'URL : copier le lien suffit à partager une configuration.
