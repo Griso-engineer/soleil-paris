@@ -501,11 +501,13 @@ export function maskGrid(model, step = 5, centers = false) {
   return { step, centers, values };
 }
 
-// Rampe du masque, du bleu nuit (masqué) au rose (tout le vitrage au soleil),
+// Rampe du masque, du bleu nuit (masqué) au rose (tout le vitrage au soleil). Les bleus
+// sont réservés aux directions presque entièrement masquées (moins de 20 %), pour ne pas
+// flatter une protection qui laisse encore passer une bonne part du soleil ;
 // dans l'esprit des sphères de masque Ladybug.
-const MASK_RAMP = [
-  [0, [47, 54, 80]], [0.2, [111, 130, 179]], [0.4, [185, 214, 240]],
-  [0.5, [255, 243, 176]], [0.65, [255, 208, 90]], [0.8, [247, 147, 76]], [1, [232, 51, 90]],
+export const MASK_RAMP = [
+  [0, [47, 54, 80]], [0.08, [111, 130, 179]], [0.2, [185, 214, 240]],
+  [0.32, [255, 243, 176]], [0.5, [255, 208, 90]], [0.72, [247, 147, 76]], [1, [232, 51, 90]],
 ];
 export function maskColor(v) {
   const x = Math.max(0, Math.min(1, v));

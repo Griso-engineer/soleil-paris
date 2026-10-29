@@ -583,7 +583,7 @@ html.printing {
 .viewer-right .sun-badge { align-self: stretch; max-width: none; }
 .live { align-self: flex-end; }
 .mask-scale {
-  position: absolute; top: 14px; right: 276px; z-index: 2; pointer-events: none;
+  position: absolute; top: 14px; right: 266px; z-index: 2; pointer-events: none;
   display: grid; grid-template-columns: auto auto; grid-template-rows: auto 1fr auto; column-gap: 6px;
   height: 230px; background: rgba(255, 255, 255, 0.92); padding: 6px 8px;
   font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums;

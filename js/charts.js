@@ -1,7 +1,7 @@
 // Graphiques SVG : diagramme solaire, profil journalier, bilan mensuel, comparatif.
 
 import { sunPosition, parisLocalToUTC } from './solar.js';
-import { maskColor } from './shading.js';
+import { maskColor, MASK_RAMP } from './shading.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
@@ -89,7 +89,7 @@ function maskCells(mask, proj) {
 
 /** Dégradé CSS du masque solaire, dans la direction donnée (90deg : de gauche à droite). */
 export function maskGradient(dir = '90deg') {
-  const stops = [0, 0.2, 0.4, 0.5, 0.65, 0.8, 1]
+  const stops = MASK_RAMP.map(([v]) => v)
     .map((v) => `rgb(${maskColor(v).join(',')}) ${v * 100}%`).join(', ');
   return `linear-gradient(${dir}, ${stops})`;
 }
