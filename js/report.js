@@ -69,7 +69,7 @@ export function exportReport(ctx) {
       <div class="rp-cmp">${html('comparison')}</div>
       <div class="rp-cols">
         <div>
-          <h2>${L('À retenir', 'Key points')}</h2>
+          <h2>${L('À retenir', 'Key takeaways')}</h2>
           <p class="rp-text">${ctx.summary}</p>
           <div class="rp-insights">${html('insights')}</div>
         </div>

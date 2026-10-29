@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title data-en-title="Sun &amp; shading — Paris · Tracés">Soleil & protections — Paris · Tracés</title>
-  <meta name="description" content="Simulateur pédagogique Tracés : rayonnement solaire à Paris et efficacité des protections solaires extérieures mobiles (volets battants, pliants, roulants, brise-soleil orientables, stores)." data-en="Tracés teaching simulator: solar radiation in Paris and the effectiveness of movable external shading (hinged, folding and roller shutters, adjustable louvres, blinds).">
+  <meta name="description" content="Outil Tracés d'aide à la conception : rayonnement solaire à Paris et efficacité des protections solaires extérieures mobiles (volets battants, pliants, roulants, brise-soleil orientables, stores)." data-en="Tracés early-stage design tool: solar radiation in Paris and the effectiveness of movable external shading (hinged, folding and roller shutters, adjustable louvres, blinds).">
   <meta name="theme-color" content="#ffffff">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23FA554F'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23fff'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -24,7 +24,7 @@
 <body>
   <!-- Libellé vertical, comme dans les présentations Tracés -->
   <div class="rail" aria-hidden="true">
-    <span data-en="Tracés simulator — Sun &amp; shading">Simulateur Tracés — Soleil &amp; protections</span>
+    <span data-en="Tracés — Sun &amp; shading">Simulateur Tracés — Soleil &amp; protections</span>
     <b>tracés</b>
     <span data-en="Paris 48.86° N">Paris 48,86° N</span>
   </div>
@@ -32,7 +32,7 @@
   <header class="top">
     <nav class="top-nav" aria-label="Sections">
       <a href="#simulateur" data-en="Simulator">Simulateur</a>
-      <a href="#comprendre" data-en="Understand">Comprendre</a>
+      <a href="#comprendre" data-en="Background">Comprendre</a>
       <a href="#methode" data-en="Method">Méthode</a>
     </nav>
     <div class="top-right">
@@ -46,21 +46,21 @@
 
   <nav class="tabs" aria-label="Outils" data-en-aria="Tools">
     <a href="index.html" aria-current="page" data-en="Solar shading">Protections solaires</a>
-    <a href="rue.html" data-en="Urban mask">Masque urbain</a>
+    <a href="rue.html" data-en="Overshadowing">Masque urbain</a>
   </nav>
 
   <!-- ================= Couverture ================= -->
   <section class="hero">
     <div class="hero-meta reveal">
-      <span data-en="Teaching tool">Outil pédagogique</span><i aria-hidden="true">•</i><span data-en="Paris, 48.86° N">Paris, 48,86° N</span>
+      <span data-en="Early-stage design tool">Outil d'aide à la conception</span><i aria-hidden="true">•</i><span data-en="Paris, 48.86° N">Paris, 48,86° N</span>
     </div>
     <h1 class="hero-title reveal" data-en="Sun &amp;<br>shading">Soleil &amp;<br>protections</h1>
-    <p class="hero-lede reveal" data-en="Follow the sun on a Parisian façade, hour by hour and season by season, and measure what shutters, blinds and louvres really stop.">Suivez le soleil sur une façade parisienne, heure par heure et saison par saison, et mesurez ce que volets, stores et brise-soleil arrêtent vraiment.</p>
+    <p class="hero-lede reveal" data-en="Follow the sun across a Parisian façade, hour by hour and season by season, and see how much shutters, blinds and louvres actually block.">Suivez le soleil sur une façade parisienne, heure par heure et saison par saison, et mesurez ce que volets, stores et brise-soleil arrêtent vraiment.</p>
   </section>
 
   <section class="manifesto" aria-label="Introduction">
     <div class="manifesto-label" data-en="Why">Pourquoi</div>
-    <p class="manifesto-text" data-scrub data-en="A window in summer sun lets in as much heat as a heater left on. The device that stops it must be outside, in front of the glass, and it only works when well oriented and deployed at the right time. This simulator assesses its effectiveness in the Parisian context, for your window and your orientation.">
+    <p class="manifesto-text" data-scrub data-en="A sunlit window in summer lets in as much heat as a radiator left on. The shading that stops it has to sit outside, in front of the glass, and it only works if it is well oriented and deployed at the right time. This tool assesses its performance in Paris, for your window and your orientation.">
       Une fenêtre au soleil d'été fait entrer autant de chaleur qu'un radiateur allumé. La protection qui l'arrête doit se trouver dehors, avant la vitre, et elle n'est efficace que bien orientée et déployée au bon moment. Ce simulateur en évalue l'efficacité dans le contexte parisien, pour votre fenêtre et votre orientation.
     </p>
   </section>
@@ -70,7 +70,7 @@
     <header class="block-head reveal">
       <span class="num">01</span>
       <h2 data-en="Simulator">Simulateur</h2>
-      <p data-en="Choose an orientation, a window and a shading device, then scroll through the hours and seasons.">Choisissez une orientation, une fenêtre et une protection, puis faites défiler les heures et les saisons.</p>
+      <p data-en="Choose an orientation, a window and a shading device, then scrub through the hours and seasons.">Choisissez une orientation, une fenêtre et une protection, puis faites défiler les heures et les saisons.</p>
     </header>
 
     <div class="app">
@@ -81,9 +81,9 @@
           <div class="orient">
             <div class="rose" id="rose" role="radiogroup" aria-label="Orientation"></div>
             <div class="field">
-              <label for="facadeAz"><span data-en="Azimuth of the normal">Azimut de la normale</span> <output id="facadeAzOut"></output></label>
+              <label for="facadeAz"><span data-en="Façade azimuth">Azimut de la normale</span> <output id="facadeAzOut"></output></label>
               <input type="range" id="facadeAz" min="0" max="355" step="5">
-              <p class="hint" data-en="The window “looks” in this direction. 180° = due south.">La fenêtre « regarde » dans cette direction. 180° = plein sud.</p>
+              <p class="hint" data-en="Direction the window faces. 180° = due south.">La fenêtre « regarde » dans cette direction. 180° = plein sud.</p>
             </div>
           </div>
         </section>
@@ -103,7 +103,7 @@
           <div class="field">
             <label for="e"><span data-en="Reveal depth">Profondeur du tableau</span> <output id="eOut"></output></label>
             <input type="range" id="e" min="0" max="0.5" step="0.01">
-            <p class="hint" data-en="Setback of the glazing from the façade face (Haussmann-era wall: 30 to 40 cm).">Retrait du vitrage par rapport au nu de la façade (mur haussmannien : 30 à 40 cm).</p>
+            <p class="hint" data-en="Glazing setback from the outer face of the wall (Haussmann-era walls: 30–40 cm).">Retrait du vitrage par rapport au nu de la façade (mur haussmannien : 30 à 40 cm).</p>
           </div>
           <div class="field">
             <label for="glazing"><span data-en="Glazing">Vitrage</span></label>
@@ -129,10 +129,10 @@
             <div class="field" data-for="bso">
               <label for="slatAngle"><span data-en="Slat tilt">Inclinaison des lames</span> <output id="slatAngleOut"></output></label>
               <input type="range" id="slatAngle" min="0" max="85" step="5">
-              <p class="hint" data-en="0°: horizontal slats. The higher the angle, the more the blind closes.">0° : lames horizontales. Plus l'angle augmente, plus le store se ferme.</p>
+              <p class="hint" data-en="0°: slats horizontal. The steeper the angle, the more the blind closes.">0° : lames horizontales. Plus l'angle augmente, plus le store se ferme.</p>
             </div>
             <div class="field" data-for="battants">
-              <label for="openAngle"><span data-en="Leaf opening">Ouverture des vantaux</span> <output id="openAngleOut"></output></label>
+              <label for="openAngle"><span data-en="Shutter opening">Ouverture des vantaux</span> <output id="openAngleOut"></output></label>
               <input type="range" id="openAngle" min="0" max="180" step="5">
               <p class="hint" data-en="0°: closed. 90°: perpendicular to the wall. 180°: folded back against the façade.">0° : fermés. 90° : perpendiculaires au mur. 180° : rabattus contre la façade.</p>
             </div>
@@ -153,14 +153,14 @@
               </div>
             </div>
             <div class="field check" data-for="roulant">
-              <label><input type="checkbox" id="ajoure"> <span data-en="Perforated slats (let light through once lowered)">Lames ajourées (filtrent la lumière une fois baissé)</span></label>
+              <label><input type="checkbox" id="ajoure"> <span data-en="Perforated slats (let some light through when lowered)">Lames ajourées (filtrent la lumière une fois baissé)</span></label>
             </div>
             <div class="field" data-for="banne">
               <label for="bannePro"><span data-en="Projection">Avancée</span> <output id="banneProOut"></output></label>
               <input type="range" id="bannePro" min="0.6" max="3" step="0.1">
             </div>
             <div class="field" data-for="banne">
-              <label for="banneAngle"><span data-en="Slope">Inclinaison</span> <output id="banneAngleOut"></output></label>
+              <label for="banneAngle"><span data-en="Pitch">Inclinaison</span> <output id="banneAngleOut"></output></label>
               <input type="range" id="banneAngle" min="5" max="70" step="5">
             </div>
             <div class="field" data-for="battants accordeon roulant bso screen banne">
@@ -177,9 +177,9 @@
         <section class="group">
           <button type="button" class="export" id="exportPdf">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
-            <span data-en="Export the PDF sheet">Exporter la fiche PDF</span>
+            <span data-en="Export PDF report">Exporter la fiche PDF</span>
           </button>
-          <p class="hint" data-en="Two A4 pages for the chosen shading and setting. In the print window, choose “Save as PDF”.">Deux pages A4 pour la protection et le réglage choisis. Dans la fenêtre d'impression, choisissez « Enregistrer au format PDF ».</p>
+          <p class="hint" data-en="Two A4 pages for the selected device and setting. In the print dialogue, choose “Save as PDF”.">Deux pages A4 pour la protection et le réglage choisis. Dans la fenêtre d'impression, choisissez « Enregistrer au format PDF ».</p>
         </section>
       </aside>
 
@@ -198,12 +198,12 @@
               <div class="live-card"><div class="live-title" data-en="Sun path">Course du soleil</div><div id="liveSun"></div></div>
             </div>
           </div>
-          <div class="mask-scale" id="maskLegend3d" hidden aria-label="Échelle du masque solaire : part du vitrage au soleil, de 0 à 100 %" data-en-aria="Solar mask scale: share of the glazing in sun, from 0 to 100 %">
+          <div class="mask-scale" id="maskLegend3d" hidden aria-label="Échelle du masque solaire : part du vitrage au soleil, de 0 à 100 %" data-en-aria="Shading mask scale: share of glazing in direct sun, 0 to 100 %">
             <span>100 %</span><i id="maskScaleBar"></i><span>0 %</span>
-            <b data-en="Solar mask · share of the glazing in sun">Masque solaire · part du vitrage au soleil</b>
+            <b data-en="Shading mask · share of glazing in direct sun">Masque solaire · part du vitrage au soleil</b>
           </div>
           <div class="viewer-toggles">
-            <button type="button" class="live-toggle" id="maskToggle" aria-pressed="false" data-en="Solar mask">Masque solaire</button>
+            <button type="button" class="live-toggle" id="maskToggle" aria-pressed="false" data-en="Shading mask">Masque solaire</button>
             <button type="button" class="live-toggle" id="liveToggle" aria-pressed="true" data-en="Live charts">Graphes en direct</button>
           </div>
           <div class="viewer-hint" data-en="Interactive 3D view">Vue 3D interactive</div>
@@ -241,7 +241,7 @@
           <div class="kpis" id="kpis"></div>
         </section>
         <section class="kpi-block">
-          <h3><span data-en="Performance over the whole day">Performance sur la journée entière</span> <span id="kpiDayLabel"></span></h3>
+          <h3><span data-en="Performance over the day">Performance sur la journée entière</span> <span id="kpiDayLabel"></span></h3>
           <div class="kpis" id="kpisDay"></div>
         </section>
         <section class="kpi-block">
@@ -267,8 +267,8 @@
         <article class="card">
           <header class="card-head">
             <div>
-              <h3 data-en="Sun path and solar mask">Course du soleil et masque solaire</h3>
-              <p class="sub" data-en="Sky seen from above, north at the top. Colour: share of the glazing reached by direct sun with the chosen shading.">Vue du ciel, nord en haut. Couleur : part du vitrage atteinte par le soleil direct avec la protection choisie.</p>
+              <h3 data-en="Sun path and shading mask">Course du soleil et masque solaire</h3>
+              <p class="sub" data-en="Sky dome in plan, north up. Colour: share of the glazing in direct sun with the selected device.">Vue du ciel, nord en haut. Couleur : part du vitrage atteinte par le soleil direct avec la protection choisie.</p>
             </div>
           </header>
           <div class="chart sunpath" id="sunPath"></div>
@@ -279,7 +279,7 @@
         <article class="card">
           <header class="card-head">
             <div>
-              <h3 data-en="Key points">À retenir</h3>
+              <h3 data-en="Key takeaways">À retenir</h3>
               <p class="sub" id="insightSub"></p>
             </div>
           </header>
@@ -324,8 +324,8 @@
   <section id="comprendre" class="block">
     <header class="block-head reveal">
       <span class="num">02</span>
-      <h2 data-en="Understand">Comprendre</h2>
-      <p data-en="Six ideas to read the results and choose a shading device.">Six idées pour lire les résultats et choisir une protection.</p>
+      <h2 data-en="Background">Comprendre</h2>
+      <p data-en="Six principles for reading the results and choosing a shading device.">Six idées pour lire les résultats et choisir une protection.</p>
     </header>
 
     <ol class="story">
@@ -333,7 +333,7 @@
         <span class="story-num">1</span>
         <div class="story-text reveal">
           <h3 data-en="The sun in Paris">Le soleil à Paris</h3>
-          <p data-en="At 48.9° north, the sun peaks at 64.6° at the summer solstice and only 17.7° at the winter solstice. In June it rises in the north-east and sets in the north-west: it then lights north façades early in the morning and late in the day.">À 48,9° de latitude nord, le soleil culmine à 64,6° au solstice d'été et à 17,7° seulement au solstice d'hiver. En juin, il se lève au nord-est et se couche au nord-ouest : il éclaire alors les façades nord tôt le matin et en fin de journée.</p>
+          <p data-en="At 48.9° north, the sun peaks at 64.6° at the summer solstice and only 17.7° at the winter solstice. In June it rises in the north-east and sets in the north-west: so north façades get sun early in the morning and late in the evening.">À 48,9° de latitude nord, le soleil culmine à 64,6° au solstice d'été et à 17,7° seulement au solstice d'hiver. En juin, il se lève au nord-est et se couche au nord-ouest : il éclaire alors les façades nord tôt le matin et en fin de journée.</p>
         </div>
         <figure class="story-fig reveal" style="--fig: var(--c-sun)">
           <svg viewBox="0 0 400 260" aria-hidden="true" class="fig-svg">
@@ -352,8 +352,8 @@
       <li class="story-item">
         <span class="story-num">2</span>
         <div class="story-text reveal">
-          <h3 data-en="Shade on the outside">Protéger à l'extérieur</h3>
-          <p data-en="Radiation that has passed through the glass stays trapped in the room: the greenhouse effect. External shading stops it before the glazing and releases the heat it absorbs to the open air. For the same colour, an external blind is two to three times more effective than an internal one.">Le rayonnement qui a traversé la vitre reste piégé dans la pièce : c'est l'effet de serre. Une protection extérieure l'arrête avant le vitrage et dissipe à l'air libre la chaleur qu'elle absorbe. À teinte égale, un store extérieur est deux à trois fois plus efficace qu'un store intérieur.</p>
+          <h3 data-en="Shade from the outside">Protéger à l'extérieur</h3>
+          <p data-en="Radiation that has passed through the glass stays trapped in the room: the greenhouse effect. External shading intercepts it before the glazing and dissipates the heat it absorbs to the outside air. For the same colour, an external blind is two to three times as effective as an internal one.">Le rayonnement qui a traversé la vitre reste piégé dans la pièce : c'est l'effet de serre. Une protection extérieure l'arrête avant le vitrage et dissipe à l'air libre la chaleur qu'elle absorbe. À teinte égale, un store extérieur est deux à trois fois plus efficace qu'un store intérieur.</p>
         </div>
         <figure class="story-fig reveal" style="--fig: var(--c-orange)">
           <div class="fig-stat hero"><b data-en="×2 to ×3">×2 à ×3</b><span data-en="more effective when shading is external">d'efficacité pour une protection extérieure</span></div>
@@ -365,7 +365,7 @@
         <span class="story-num">3</span>
         <div class="story-text reveal">
           <h3 data-en="The solar factor g">Le facteur solaire g</h3>
-          <p data-en="It is the share of the solar energy reaching the window that ends up in the room. Standard double glazing has a g of about 0.6. With good external shading closed, the total factor g&lt;sub&gt;tot&lt;/sub&gt; drops below 0.1: 90 % of the energy is stopped.">C'est la part de l'énergie solaire reçue par la fenêtre qui finit dans le local. Un double vitrage courant a un g d'environ 0,6. Avec une bonne protection extérieure fermée, le facteur global g<sub>tot</sub> tombe sous 0,1 : 90 % de l'énergie est arrêtée.</p>
+          <p data-en="The share of incident solar energy that ends up in the room. Standard double glazing has a g-value of about 0.6. With good external shading closed, the total solar energy transmittance g&lt;sub&gt;tot&lt;/sub&gt; drops below 0.1: 90 % of the energy is blocked.">C'est la part de l'énergie solaire reçue par la fenêtre qui finit dans le local. Un double vitrage courant a un g d'environ 0,6. Avec une bonne protection extérieure fermée, le facteur global g<sub>tot</sub> tombe sous 0,1 : 90 % de l'énergie est arrêtée.</p>
         </div>
         <figure class="story-fig reveal" style="--fig: var(--c-blue)">
           <div class="fig-stat hero"><b data-en="0.6 → 0.1">0,6 → 0,1</b><span data-en="solar factor, without then with shading">facteur solaire, sans puis avec protection</span></div>
@@ -377,7 +377,7 @@
         <span class="story-num">4</span>
         <div class="story-text reveal">
           <h3 data-en="Orientation first">L'orientation d'abord</h3>
-          <p data-en="To the south, the summer sun is high: a horizontal overhang (awning, slightly tilted slats) is enough and lets the winter sun in. To the east and especially the west, the sun comes in low, almost head-on: only vertical shading (shutters, louvres, screens) stops it.">Au sud, le soleil d'été est haut : une avancée horizontale (store banne, lames peu inclinées) suffit et laisse entrer le soleil d'hiver. À l'est et surtout à l'ouest, le soleil arrive bas, presque de face : seules les protections verticales (volets, BSO, screens) l'arrêtent.</p>
+          <p data-en="To the south, the summer sun is high: a horizontal overhang (awning, slightly tilted slats) is enough and lets the winter sun in. To the east and especially the west, the sun comes in low, almost head-on: only vertical shading (shutters, louvres, screens) can block it.">Au sud, le soleil d'été est haut : une avancée horizontale (store banne, lames peu inclinées) suffit et laisse entrer le soleil d'hiver. À l'est et surtout à l'ouest, le soleil arrive bas, presque de face : seules les protections verticales (volets, BSO, screens) l'arrêtent.</p>
         </div>
         <figure class="story-fig reveal" style="--fig: var(--c-coral)">
           <svg viewBox="0 0 400 260" aria-hidden="true" class="fig-svg">
@@ -397,8 +397,8 @@
       <li class="story-item">
         <span class="story-num">5</span>
         <div class="story-text reveal">
-          <h3 data-en="Shade without shutting yourself in">Protéger sans s'enfermer</h3>
-          <p data-en="A closed shutter is effective but leaves the room in the dark. Louvres, tilting slats and fabrics let daylight in while blocking direct radiation. The “Daylight” column of the comparison shows it for your window.">Un volet fermé est efficace mais plonge la pièce dans le noir. Persiennes, lames orientables et toiles laissent entrer la lumière du jour tout en bloquant le rayonnement direct. La colonne « Lumière » du comparatif le montre pour votre fenêtre.</p>
+          <h3 data-en="Shade without shutting out daylight">Protéger sans s'enfermer</h3>
+          <p data-en="A closed shutter works, but leaves the room in darkness. Louvres, tilting slats and fabrics admit daylight while blocking direct radiation. The “Daylight” column of the comparison shows this for your window.">Un volet fermé est efficace mais plonge la pièce dans le noir. Persiennes, lames orientables et toiles laissent entrer la lumière du jour tout en bloquant le rayonnement direct. La colonne « Lumière » du comparatif le montre pour votre fenêtre.</p>
         </div>
         <figure class="story-fig reveal" style="--fig: var(--c-sun)">
           <svg viewBox="0 0 400 260" aria-hidden="true" class="fig-svg slats">
@@ -416,8 +416,8 @@
       <li class="story-item">
         <span class="story-num">6</span>
         <div class="story-text reveal">
-          <h3 data-en="Close before the sun arrives">Fermer avant que le soleil arrive</h3>
-          <p data-en="Once the sun has passed through the glass, the heat stays in the room: closing the blind an hour later does not let it out. Shading must therefore be lowered before the sun reaches the façade, and opened again in the evening to let the room cool down.">Une fois que le soleil a traversé la vitre, la chaleur reste dans la pièce : fermer le store une heure plus tard ne la fait pas ressortir. Il faut donc baisser la protection avant que le soleil n'atteigne la façade, et la rouvrir le soir pour laisser la pièce se rafraîchir.</p>
+          <h3 data-en="Close before the sun gets there">Fermer avant que le soleil arrive</h3>
+          <p data-en="Once the sun has come through the glass, the heat stays in the room: lowering the blind an hour later won’t get it out. Shading should therefore go down before the sun reaches the façade, and back up in the evening so the room can cool down.">Une fois que le soleil a traversé la vitre, la chaleur reste dans la pièce : fermer le store une heure plus tard ne la fait pas ressortir. Il faut donc baisser la protection avant que le soleil n'atteigne la façade, et la rouvrir le soir pour laisser la pièce se rafraîchir.</p>
           <p data-en="On 21 June in Paris, the sun strikes an east façade from sunrise to 13:50, a south façade from 9:25 to 18:20 and a west façade from 13:55 to sunset.">Le 21 juin à Paris, le soleil frappe une façade est du lever à 13 h 50, une façade sud de 9 h 25 à 18 h 20 et une façade ouest de 13 h 55 au coucher.</p>
         </div>
         <figure class="story-fig reveal" style="--fig: var(--c-orange)">
@@ -437,15 +437,15 @@
   <section id="methode" class="block">
     <header class="block-head reveal">
       <span class="num">03</span>
-      <h2 data-en="Method and limits">Méthode et limites</h2>
-      <p data-en="What the tool calculates, and what it does not.">Ce que calcule l'outil, et ce qu'il ne calcule pas.</p>
+      <h2 data-en="Method and limitations">Méthode et limites</h2>
+      <p data-en="What the tool calculates — and what it doesn’t.">Ce que calcule l'outil, et ce qu'il ne calcule pas.</p>
     </header>
     <dl class="facts">
       <div class="reveal"><dt data-en="Sun position">Position du soleil</dt><dd data-en="NOAA algorithm, Paris local time (daylight saving included), atmospheric refraction taken into account.">Algorithme du NOAA, heure légale de Paris (changement d'heure inclus), réfraction atmosphérique prise en compte.</dd></div>
       <div class="reveal"><dt data-en="Radiation">Rayonnement</dt><dd data-en="ASHRAE clear-sky model (monthly coefficients). These are cloudless days, hence the upper bound of gains, not a weather average. Ground albedo: 0.2.">Modèle ASHRAE de ciel clair (coefficients mensuels). Ce sont des journées sans nuages, donc l'enveloppe haute des apports, pas une moyenne météo. Albédo du sol : 0,2.</dd></div>
       <div class="reveal"><dt data-en="Shading">Ombrage</dt><dd data-en="Ray casting from a grid of points on the glazing, for direct radiation and for diffuse sky and ground radiation (assumed isotropic). The reveal, awning, leaves and slats are modelled geometrically; slats through their profile angle.">Lancer de rayons depuis une grille de points sur le vitrage, pour le rayonnement direct et pour le diffus du ciel et du sol (supposés isotropes). Tableau, store banne, vantaux et lames sont modélisés géométriquement ; les lames par leur angle de profil.</dd></div>
       <div class="reveal"><dt data-en="Gains">Apports</dt><dd data-en="Simplified method of EN ISO 52022-1 for external shading (g&lt;sub&gt;tot&lt;/sub&gt; = τ·g + α·G/G₂ + τ·(1−g)·G/G₁), adjusted for the angle of incidence on the glazing.">Méthode simplifiée de la NF EN ISO 52022-1 pour une protection extérieure (g<sub>tot</sub> = τ·g + α·G/G₂ + τ·(1−g)·G/G₁), modulée selon l'angle d'incidence sur le vitrage.</dd></div>
-      <div class="reveal"><dt data-en="Not modelled">Hors modèle</dt><dd data-en="Distant obstructions (neighbouring buildings, trees), building thermal mass, ventilation, multiple reflections in the room. The results are for comparing solutions, not for sizing an installation.">Masques lointains (immeubles voisins, arbres), inertie du bâtiment, ventilation, réflexions multiples dans la pièce. Les résultats servent à comparer des solutions, pas à dimensionner une installation.</dd></div>
+      <div class="reveal"><dt data-en="Out of scope">Hors modèle</dt><dd data-en="Distant obstructions (neighbouring buildings, trees), building thermal mass, ventilation, multiple reflections in the room. The results are for comparing options, not for sizing a system.">Masques lointains (immeubles voisins, arbres), inertie du bâtiment, ventilation, réflexions multiples dans la pièce. Les résultats servent à comparer des solutions, pas à dimensionner une installation.</dd></div>
     </dl>
   </section>
 
@@ -460,7 +460,7 @@
       </address>
     </div>
     <div class="foot-cols">
-      <div><b data-en="Sun &amp; shading">Soleil &amp; protections</b><span data-en="Teaching simulator">Simulateur pédagogique</span></div>
+      <div><b data-en="Sun &amp; shading">Soleil &amp; protections</b><span data-en="Early-stage design tool">Outil d'aide à la conception</span></div>
       <div><b>Paris</b><span data-en="48.86° N · 2.35° E">48,86° N · 2,35° E</span></div>
       <div><b data-en="Source code">Code source</b><a href="https://github.com/Griso-engineer/soleil-paris">github.com/Griso-engineer/soleil-paris</a></div>
     </div>

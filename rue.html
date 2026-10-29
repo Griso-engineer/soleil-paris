@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title data-en-title="The street and the solar mask — Paris · Tracés">La rue et le masque solaire — Paris · Tracés</title>
-  <meta name="description" content="Simulateur pédagogique Tracés : le masque solaire de l'immeuble d'en face dans une rue parisienne, selon la largeur de la rue, la hauteur des immeubles et l'étage." data-en="Tracés teaching simulator: the solar mask of the opposite building in a Parisian street, depending on street width, building heights and floor.">
+  <title data-en-title="Overshadowing in the street — Paris · Tracés">La rue et le masque solaire — Paris · Tracés</title>
+  <meta name="description" content="Outil Tracés d'aide à la conception : le masque solaire de l'immeuble d'en face dans une rue parisienne, selon la largeur de la rue, la hauteur des immeubles et l'étage." data-en="Tracés early-stage design tool: overshadowing from the building opposite in a Parisian street, by street width, building height and floor.">
   <meta name="theme-color" content="#ffffff">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23FA554F'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23fff'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,7 +15,7 @@
 </head>
 <body>
   <div class="rail" aria-hidden="true">
-    <span data-en="Tracés simulator — Urban mask">Simulateur Tracés — Masque urbain</span>
+    <span data-en="Tracés — Overshadowing">Simulateur Tracés — Masque urbain</span>
     <b>tracés</b>
     <span data-en="Paris 48.86° N">Paris 48,86° N</span>
   </div>
@@ -23,7 +23,7 @@
   <header class="top">
     <nav class="top-nav" aria-label="Sections">
       <a href="#simulateur" data-en="Simulator">Simulateur</a>
-      <a href="#comprendre" data-en="Understand">Comprendre</a>
+      <a href="#comprendre" data-en="Background">Comprendre</a>
       <a href="#methode" data-en="Method">Méthode</a>
     </nav>
     <div class="top-right">
@@ -37,16 +37,16 @@
 
   <nav class="tabs" aria-label="Outils" data-en-aria="Tools">
     <a href="index.html" data-en="Solar shading">Protections solaires</a>
-    <a href="rue.html" aria-current="page" data-en="Urban mask">Masque urbain</a>
+    <a href="rue.html" aria-current="page" data-en="Overshadowing">Masque urbain</a>
   </nav>
 
   <!-- ================= Couverture ================= -->
   <section class="hero hero-compact">
     <div class="hero-meta reveal">
-      <span data-en="Teaching tool">Outil pédagogique</span><i aria-hidden="true">•</i><span data-en="Paris, 48.86° N">Paris, 48,86° N</span>
+      <span data-en="Early-stage design tool">Outil d'aide à la conception</span><i aria-hidden="true">•</i><span data-en="Paris, 48.86° N">Paris, 48,86° N</span>
     </div>
-    <h1 class="hero-title reveal" data-en="The street and<br>the solar mask">La rue et le<br>masque solaire</h1>
-    <p class="hero-lede reveal" data-en="The building opposite is often the first solar shading of a Parisian window. Measure its effect according to street width, building heights, orientation and floor.">L'immeuble d'en face est souvent la première protection solaire d'une fenêtre parisienne. Mesurez son effet selon la largeur de la rue, la hauteur des immeubles, l'orientation et l'étage.</p>
+    <h1 class="hero-title reveal" data-en="Overshadowing<br>in the street">La rue et le<br>masque solaire</h1>
+    <p class="hero-lede reveal" data-en="In Paris, the building across the street is often a window’s first line of solar shading. Measure its effect for any street width, building height, orientation and floor.">L'immeuble d'en face est souvent la première protection solaire d'une fenêtre parisienne. Mesurez son effet selon la largeur de la rue, la hauteur des immeubles, l'orientation et l'étage.</p>
   </section>
 
   <!-- ================= Simulateur ================= -->
@@ -54,7 +54,7 @@
     <header class="block-head reveal">
       <span class="num">01</span>
       <h2 data-en="Simulator">Simulateur</h2>
-      <p data-en="Set the street and the floor, then scroll through the hours and seasons: the shadow of the opposite building rises and falls on the façade.">Réglez la rue et l'étage, puis faites défiler les heures et les saisons : l'ombre de l'immeuble d'en face monte et descend sur la façade.</p>
+      <p data-en="Set up the street and the floor, then scrub through the hours and seasons: the shadow of the building opposite rises and falls on the façade.">Réglez la rue et l'étage, puis faites défiler les heures et les saisons : l'ombre de l'immeuble d'en face monte et descend sur la façade.</p>
     </header>
 
     <div class="app">
@@ -64,9 +64,9 @@
           <div class="orient">
             <div class="rose" id="rose" role="radiogroup" aria-label="Orientation"></div>
             <div class="field">
-              <label for="facadeAz"><span data-en="Azimuth of the normal">Azimut de la normale</span> <output id="facadeAzOut"></output></label>
+              <label for="facadeAz"><span data-en="Façade azimuth">Azimut de la normale</span> <output id="facadeAzOut"></output></label>
               <input type="range" id="facadeAz" min="0" max="355" step="5">
-              <p class="hint" data-en="Direction the window looks towards, hence towards the opposite building. 180° = due south.">Direction vers laquelle regarde la fenêtre, donc vers l'immeuble d'en face. 180° = plein sud.</p>
+              <p class="hint" data-en="Direction the window faces, i.e. towards the building opposite. 180° = due south.">Direction vers laquelle regarde la fenêtre, donc vers l'immeuble d'en face. 180° = plein sud.</p>
             </div>
           </div>
         </section>
@@ -76,25 +76,25 @@
           <div class="field">
             <label for="width"><span data-en="Street width">Largeur de la rue</span> <output id="widthOut"></output></label>
             <input type="range" id="width" min="4" max="40" step="0.5">
-            <p class="hint" data-en="Façade to façade, pavements included. Local street: 10 to 15 m; Haussmann boulevard: 30 m and more.">De façade à façade, trottoirs compris. Rue de quartier : 10 à 15 m ; boulevard haussmannien : 30 m et plus.</p>
+            <p class="hint" data-en="Façade to façade, including pavements. Side street: 10–15 m; Haussmann boulevard: 30 m or more.">De façade à façade, trottoirs compris. Rue de quartier : 10 à 15 m ; boulevard haussmannien : 30 m et plus.</p>
           </div>
           <div class="field">
-            <label for="hOpp"><span data-en="Height of the opposite building">Hauteur de l'immeuble d'en face</span> <output id="hOppOut"></output></label>
+            <label for="hOpp"><span data-en="Height of the building opposite">Hauteur de l'immeuble d'en face</span> <output id="hOppOut"></output></label>
             <input type="range" id="hOpp" min="0" max="40" step="0.5">
             <p class="hint" data-en="Haussmann-era building: 18 to 20 m to the eaves.">Immeuble haussmannien : 18 à 20 m à l'égout du toit.</p>
           </div>
           <div class="field">
-            <label for="hOwn"><span data-en="Height of our building">Hauteur de notre immeuble</span> <output id="hOwnOut"></output></label>
+            <label for="hOwn"><span data-en="Height of this building">Hauteur de notre immeuble</span> <output id="hOwnOut"></output></label>
             <input type="range" id="hOwn" min="3" max="40" step="0.5">
           </div>
         </section>
 
         <section class="group">
-          <h3><span class="step">C</span> <span data-en="Floor studied">Étage observé</span></h3>
+          <h3><span class="step">C</span> <span data-en="Floor">Étage observé</span></h3>
           <div class="field">
             <label for="floor"><span data-en="Floor">Étage</span> <output id="floorOut"></output></label>
             <input type="range" id="floor" min="0" max="12" step="1">
-            <p class="hint" data-en="3 m storeys. The window studied is a French window 2.20 m high.">Étages de 3 m. La fenêtre étudiée est une porte-fenêtre de 2,20 m de haut.</p>
+            <p class="hint" data-en="3 m floor-to-floor height. The window is a 2.20 m high French window.">Étages de 3 m. La fenêtre étudiée est une porte-fenêtre de 2,20 m de haut.</p>
           </div>
         </section>
       </aside>
@@ -125,7 +125,7 @@
 
       <section class="results" aria-label="Résultats" data-en-aria="Results">
         <section class="kpi-block">
-          <h3><span data-en="At the selected time, for the floor studied">À l'instant sélectionné, pour l'étage étudié</span> <span id="kpiNowLabel"></span></h3>
+          <h3><span data-en="At the selected time, on the selected floor">À l'instant sélectionné, pour l'étage étudié</span> <span id="kpiNowLabel"></span></h3>
           <div class="kpis" id="kpisNow"></div>
         </section>
         <section class="kpi-block">
@@ -146,8 +146,8 @@
         <article class="card">
           <header class="card-head">
             <div>
-              <h3 data-en="Sun path and urban mask">Course du soleil et masque urbain</h3>
-              <p class="sub" data-en="Sky seen from above, north at the top. Colour: share of the window reached by direct sun, given the opposite building.">Vue du ciel, nord en haut. Couleur : part de la fenêtre atteinte par le soleil direct, compte tenu de l'immeuble d'en face.</p>
+              <h3 data-en="Sun path and overshadowing">Course du soleil et masque urbain</h3>
+              <p class="sub" data-en="Sky dome in plan, north up. Colour: share of the window in direct sun, allowing for the building opposite.">Vue du ciel, nord en haut. Couleur : part de la fenêtre atteinte par le soleil direct, compte tenu de l'immeuble d'en face.</p>
             </div>
           </header>
           <div class="chart sunpath" id="sunPath"></div>
@@ -172,7 +172,7 @@
             </div>
             <div class="legend">
               <span><i class="sw sw-2"></i><span data-en="Unobstructed façade">Façade dégagée</span></span>
-              <span><i class="sw sw-1"></i><span data-en="With the opposite building">Avec l'immeuble d'en face</span></span>
+              <span><i class="sw sw-1"></i><span data-en="With the building opposite">Avec l'immeuble d'en face</span></span>
             </div>
           </header>
           <div class="chart" id="monthChart"></div>
@@ -181,7 +181,7 @@
         <article class="card span-2">
           <header class="card-head">
             <div>
-              <h3 data-en="Key points">À retenir</h3>
+              <h3 data-en="Key takeaways">À retenir</h3>
               <p class="sub" id="insightSub"></p>
             </div>
           </header>
@@ -195,15 +195,15 @@
   <section id="comprendre" class="block">
     <header class="block-head reveal">
       <span class="num">02</span>
-      <h2 data-en="Understand">Comprendre</h2>
-      <p data-en="Three ideas for reading a street as a solar mask.">Trois idées pour lire une rue comme un masque solaire.</p>
+      <h2 data-en="Background">Comprendre</h2>
+      <p data-en="Three principles for reading a street as a source of shade.">Trois idées pour lire une rue comme un masque solaire.</p>
     </header>
     <ol class="story">
       <li class="story-item">
         <span class="story-num">1</span>
         <div class="story-text reveal">
           <h3 data-en="The obstruction angle">L'angle d'obstruction</h3>
-          <p data-en="From the window, draw the line through the top of the opposite building. Its angle above the horizontal is the obstruction angle. The sun only reaches the window if it passes above it, seen in the street section.">Depuis la fenêtre, on trace la ligne qui passe par le haut de l'immeuble d'en face. Son angle au-dessus de l'horizontale est l'angle d'obstruction. Le soleil ne touche la fenêtre que s'il passe au-dessus, vu dans la coupe de la rue.</p>
+          <p data-en="From the window, draw a line to the roofline opposite. Its angle above the horizontal is the obstruction angle: in the street section, the sun reaches the window only when it is higher than this line.">Depuis la fenêtre, on trace la ligne qui passe par le haut de l'immeuble d'en face. Son angle au-dessus de l'horizontale est l'angle d'obstruction. Le soleil ne touche la fenêtre que s'il passe au-dessus, vu dans la coupe de la rue.</p>
         </div>
         <figure class="story-fig reveal" style="--fig: var(--c-sun)">
           <svg viewBox="0 0 400 260" aria-hidden="true" class="fig-svg">
@@ -222,23 +222,23 @@
       <li class="story-item">
         <span class="story-num">2</span>
         <div class="story-text reveal">
-          <h3 data-en="The winter sun is lost in the street">Le soleil d'hiver se perd dans la rue</h3>
+          <h3 data-en="Winter sun rarely reaches the street">Le soleil d'hiver se perd dans la rue</h3>
           <p data-en="In Paris, the sun rises no higher than 18° at noon on 21 December. As soon as the obstruction angle is steeper, the window never sees direct sun in winter, and the lower floors of a narrow street stay in shade for months.">À Paris, le soleil ne dépasse pas 18° à midi le 21 décembre. Dès que l'angle d'obstruction est plus fort, la fenêtre ne voit plus jamais le soleil direct en hiver, et les étages bas d'une rue étroite restent à l'ombre des mois durant.</p>
         </div>
         <figure class="story-fig reveal" style="--fig: var(--c-blue)">
           <div class="fig-stat hero"><b data-en="17.7°">17,7°</b><span data-en="sun height at noon, 21 December">hauteur du soleil à midi, le 21 décembre</span></div>
-          <figcaption data-en="&lt;b&gt;In winter&lt;/b&gt;, the urban mask deprives the façade of free solar gains."><b>En hiver</b>, le masque urbain prive la façade d'apports gratuits.</figcaption>
+          <figcaption data-en="&lt;b&gt;In winter&lt;/b&gt;, overshadowing deprives the façade of free solar gains."><b>En hiver</b>, le masque urbain prive la façade d'apports gratuits.</figcaption>
         </figure>
       </li>
       <li class="story-item">
         <span class="story-num">3</span>
         <div class="story-text reveal">
-          <h3 data-en="In summer, the opposite building protects">En été, l'immeuble d'en face protège</h3>
-          <p data-en="The summer sun is high in the south and passes over the roofs: the urban mask changes little there. To the east and west, the sun comes in low, almost in the plane of the section: the opposite building then cuts a good share of the morning or evening radiation.">Le soleil d'été est haut au sud et passe au-dessus des toits : le masque urbain y change peu de chose. À l'est et à l'ouest, le soleil arrive bas, presque dans l'axe de la coupe : l'immeuble d'en face coupe alors une bonne part du rayonnement du matin ou du soir.</p>
+          <h3 data-en="In summer, the building opposite provides shade">En été, l'immeuble d'en face protège</h3>
+          <p data-en="To the south, the summer sun is high and clears the roofs: overshadowing makes little difference. To the east and west, the sun is low and almost in the plane of the section, so the building opposite cuts out much of the morning or evening radiation.">Le soleil d'été est haut au sud et passe au-dessus des toits : le masque urbain y change peu de chose. À l'est et à l'ouest, le soleil arrive bas, presque dans l'axe de la coupe : l'immeuble d'en face coupe alors une bonne part du rayonnement du matin ou du soir.</p>
         </div>
         <figure class="story-fig reveal" style="--fig: var(--c-orange)">
-          <div class="fig-stat hero"><b data-en="West">Ouest</b><span data-en="where the building opposite cools the most">là où le vis-à-vis rafraîchit le plus</span></div>
-          <figcaption data-en="&lt;b&gt;A double-edged mask&lt;/b&gt;, depending on season and orientation."><b>Un masque à double tranchant</b>, selon la saison et l'orientation.</figcaption>
+          <div class="fig-stat hero"><b data-en="West">Ouest</b><span data-en="where the building opposite does most against overheating">là où le vis-à-vis rafraîchit le plus</span></div>
+          <figcaption data-en="&lt;b&gt;A mixed blessing&lt;/b&gt;, depending on season and orientation."><b>Un masque à double tranchant</b>, selon la saison et l'orientation.</figcaption>
         </figure>
       </li>
     </ol>
@@ -248,14 +248,14 @@
   <section id="methode" class="block">
     <header class="block-head reveal">
       <span class="num">03</span>
-      <h2 data-en="Method and limits">Méthode et limites</h2>
-      <p data-en="A 2D section, for orders of magnitude.">Une coupe 2D, pour des ordres de grandeur.</p>
+      <h2 data-en="Method and limitations">Méthode et limites</h2>
+      <p data-en="A 2D section, for orders of magnitude only.">Une coupe 2D, pour des ordres de grandeur.</p>
     </header>
     <dl class="facts">
       <div class="reveal"><dt data-en="Geometry">Géométrie</dt><dd data-en="Straight, infinite street lined by two parallel buildings of constant height. The sun is projected into the street section (profile angle); the cast shadow rises on the façade up to H − W·tan φ.">Rue rectiligne et infinie, bordée de deux immeubles parallèles de hauteur constante. Le soleil est projeté dans la coupe de la rue (angle de profil) ; l'ombre portée monte sur la façade jusqu'à H − L·tan φ.</dd></div>
       <div class="reveal"><dt data-en="Sun and radiation">Soleil et rayonnement</dt><dd data-en="NOAA sun position, Paris local time; ASHRAE clear sky. An hour “of sun” counts when at least half the window is in direct sun.">Position du soleil NOAA, heure légale de Paris ; ciel clair ASHRAE. Une heure « de soleil » compte quand au moins la moitié de la fenêtre est au soleil direct.</dd></div>
-      <div class="reveal"><dt data-en="Visible sky">Ciel visible</dt><dd data-en="Share of the sky vault seen by a vertical window above the opposite building, relative to an unobstructed façade: 1 − sin α. Diffuse sky radiation is reduced in the same proportion.">Part de la voûte céleste vue par une fenêtre verticale au-dessus de l'immeuble d'en face, rapportée à une façade dégagée : 1 − sin α. Le rayonnement diffus du ciel est réduit dans la même proportion.</dd></div>
-      <div class="reveal"><dt data-en="Not modelled">Hors modèle</dt><dd data-en="Reflections on the opposite façade and on the roadway (assumed identical with and without the mask), roofs and dormers, crossroads and street ends, trees, balconies. For a project, a 3D site model is still needed.">Réflexions sur la façade d'en face et sur la chaussée (supposées identiques avec et sans masque), toitures et lucarnes, carrefours et extrémités de rue, arbres, balcons. Pour un projet, un modèle 3D du site reste nécessaire.</dd></div>
+      <div class="reveal"><dt data-en="Visible sky">Ciel visible</dt><dd data-en="Share of the sky vault visible from a vertical window above the roofline opposite, relative to an unobstructed façade: 1 − sin α. Diffuse sky radiation is reduced in the same proportion.">Part de la voûte céleste vue par une fenêtre verticale au-dessus de l'immeuble d'en face, rapportée à une façade dégagée : 1 − sin α. Le rayonnement diffus du ciel est réduit dans la même proportion.</dd></div>
+      <div class="reveal"><dt data-en="Out of scope">Hors modèle</dt><dd data-en="Reflections from the façade opposite and the roadway (assumed unchanged with and without obstruction), roofs and dormers, junctions and street ends, trees, balconies. For an actual project, a 3D site model is still required.">Réflexions sur la façade d'en face et sur la chaussée (supposées identiques avec et sans masque), toitures et lucarnes, carrefours et extrémités de rue, arbres, balcons. Pour un projet, un modèle 3D du site reste nécessaire.</dd></div>
     </dl>
   </section>
 
@@ -270,7 +270,7 @@
       </address>
     </div>
     <div class="foot-cols">
-      <div><b data-en="Urban mask">Masque urbain</b><span data-en="Teaching simulator">Simulateur pédagogique</span></div>
+      <div><b data-en="Overshadowing">Masque urbain</b><span data-en="Early-stage design tool">Outil d'aide à la conception</span></div>
       <div><b>Paris</b><span data-en="48.86° N · 2.35° E">48,86° N · 2,35° E</span></div>
       <div><b data-en="Source code">Code source</b><a href="https://github.com/Griso-engineer/soleil-paris">github.com/Griso-engineer/soleil-paris</a></div>
     </div>

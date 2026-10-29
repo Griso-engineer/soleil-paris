@@ -139,7 +139,7 @@ let scene = null;
 try {
   scene = new SolarScene($('viewer'));
 } catch (err) {
-  $('viewer').insertAdjacentHTML('beforeend', '<p class="viewer-hint">La vue 3D nécessite WebGL.</p>');
+  $('viewer').insertAdjacentHTML('beforeend', `<p class="viewer-hint">${L('La vue 3D nécessite WebGL.', 'The 3D view requires WebGL.')}</p>`);
   console.error(err);
 }
 
@@ -246,8 +246,9 @@ function sunlitHours(profile) {
 }
 
 function durationLabel(h) {
-  const hh = Math.floor(h);
-  const mm = Math.round((h - hh) * 60);
+  const t = Math.round(h * 60);
+  const hh = Math.floor(t / 60);
+  const mm = t % 60;
   if (hh === 0) return `${mm} min`;
   return mm ? `${hh} h ${String(mm).padStart(2, '0')}` : `${hh} h`;
 }
@@ -416,7 +417,7 @@ function renderKpis(el, d) {
       <div class="k-note">${L('vue :', 'view:')} <b>${PROTECTIONS[state.type].view.toLowerCase()}</b></div>
     </div>
     <div class="kpi">
-      <div class="k-label">${L('Porosité, vue de face', 'Porosity, seen face on')}</div>
+      <div class="k-label">${L('Porosité, vue de face', 'Porosity (in elevation)')}</div>
       <div class="k-value">${pct(poro)}</div>
       <div class="k-note">${L('de la baie laissée libre pour la ventilation', 'of the opening left free for ventilation')}</div>
     </div>`;

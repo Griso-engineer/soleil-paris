@@ -67,7 +67,7 @@ export const PROTECTIONS = {
   screen: {
     label: L('Store toile (screen)', 'Fabric screen'),
     short: L('Toile micro-perforée verticale', 'Vertical micro-perforated fabric'),
-    view: L('Conservée, voilée', 'Kept, veiled'),
+    view: L('Conservée, voilée', 'Kept, filtered'),
     text: L("La toile filtre le rayonnement en gardant une vue vers l'extérieur. Le coefficient d'ouverture fixe le compromis entre protection et transparence.",
       'The fabric filters radiation while keeping a view outside. Its openness factor sets the balance between protection and transparency.'),
   },

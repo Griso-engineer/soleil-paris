@@ -25,9 +25,11 @@ function svgRoot(container, w, h, label) {
 
 const fmt = (v, d = 0) => v.toLocaleString(LOCALE, { minimumFractionDigits: d, maximumFractionDigits: d });
 export const fmtHour = (h) => {
-  const hh = Math.floor(h + 1e-6);
-  const mm = Math.round((h - hh) * 60);
-  return `${String(hh % 24).padStart(2, '0')}${L('h', ':')}${String(mm === 60 ? 0 : mm).padStart(2, '0')}`;
+  // Arrondi à la minute d'abord : le curseur donne des valeurs comme 11,99999
+  const t = Math.round(h * 60);
+  const hh = Math.floor(t / 60);
+  const mm = t % 60;
+  return `${String(hh % 24).padStart(2, '0')}${L('h', ':')}${String(mm).padStart(2, '0')}`;
 };
 
 function niceMax(v) {
@@ -100,7 +102,7 @@ export function maskGradient(dir = '90deg') {
 /** Légende du masque solaire (barre de dégradé 0 → 100 %). */
 export function maskLegendHTML() {
   return `<div class="mask-legend"><span>0 %</span><i style="background:${maskGradient()}"></i><span>100 %</span></div>
-    <p class="mask-caption">${L('Part du vitrage au soleil si le soleil se trouvait dans cette direction du ciel.', 'Share of the glazing in direct sun if the sun stood in this direction of the sky.')}</p>`;
+    <p class="mask-caption">${L('Part du vitrage au soleil si le soleil se trouvait dans cette direction du ciel.', 'Share of glazing in direct sun if the sun were in this part of the sky.')}</p>`;
 }
 
 export function renderSunPath(container, { year, doy, hour, sun, facadeAz, mask = null }) {
