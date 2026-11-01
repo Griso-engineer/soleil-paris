@@ -106,11 +106,15 @@ export function facingRanges(facadeAz, year, doy, stepMin = 5) {
 
 /**
  * Journée : énergie (Wh/m²) et heures de soleil direct sur la fenêtre, avec et sans masque.
- * L'énergie est cumulée sur la plage où le soleil fait face à la façade (e0, e1).
+ * Deux cumuls d'énergie : sur la plage où le soleil fait face à la façade (e0, e1), et sur
+ * la journée entière (day0, day1), qui compte aussi le diffus du ciel et le réfléchi du sol
+ * reçus quand le soleil est derrière la façade.
  */
 export function streetDay(cfg, year, doy, floor = cfg.floor, stepMin = 10) {
   let e0 = 0;
   let e1 = 0;
+  let day0 = 0;
+  let day1 = 0;
   let h0 = 0;
   let h1 = 0;
   const profileOut = [];
@@ -118,15 +122,19 @@ export function streetDay(cfg, year, doy, floor = cfg.floor, stepMin = 10) {
     const sun = sunPosition(parisLocalToUTC(year, doy, m / 60));
     const r = evaluateStreet(cfg, sun, doy, floor);
     const dt = stepMin / 60;
-    if (m < 1440 && r.direct0 > 1) {
-      e0 += r.without * dt;
-      e1 += r.withMask * dt;
-      h0 += dt;
-      if (r.lit >= 0.5) h1 += dt;
+    if (m < 1440) {
+      day0 += r.without * dt;
+      day1 += r.withMask * dt;
+      if (r.direct0 > 1) {
+        e0 += r.without * dt;
+        e1 += r.withMask * dt;
+        h0 += dt;
+        if (r.lit >= 0.5) h1 += dt;
+      }
     }
     profileOut.push({ h: m / 60, gain: r.withMask, gain0: r.without, lit: r.lit });
   }
-  return { e0, e1, h0, h1, profile: profileOut };
+  return { e0, e1, day0, day1, h0, h1, profile: profileOut };
 }
 
 /**

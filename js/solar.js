@@ -136,7 +136,11 @@ export function clearSky(altitudeDeg, doy) {
   return { dni, dhi, ghi: dni * sinA + dhi };
 }
 
-// Heures (légales) de lever et coucher, par recherche sur la journée.
+// Lever et coucher au sens des éphémérides : bord supérieur du disque sur l'horizon, soit le
+// centre à un demi-diamètre (≈ 0,27°) sous l'horizon, en hauteur apparente (réfraction comprise).
+const HORIZON = -0.27;
+
+// Heures (légales) de lever et coucher, par recherche sur la journée puis interpolation.
 export function sunTimes(year, doy) {
   let rise = null;
   let set = null;
@@ -148,8 +152,10 @@ export function sunTimes(year, doy) {
     const p = sunPosition(parisLocalToUTC(year, doy, h));
     if (p.altitude > maxAlt) { maxAlt = p.altitude; noon = h; }
     if (prev !== null) {
-      if (prev < 0 && p.altitude >= 0) rise = h;
-      if (prev >= 0 && p.altitude < 0) set = h;
+      const a0 = prev - HORIZON, a1 = p.altitude - HORIZON;
+      const cross = h - (2 / 60) * (a1 / (a1 - a0));
+      if (a0 < 0 && a1 >= 0) rise = cross;
+      if (a0 >= 0 && a1 < 0) set = cross;
     }
     prev = p.altitude;
   }

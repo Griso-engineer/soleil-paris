@@ -161,8 +161,9 @@ function recomputeDay() {
   dayData.ranges = facingRanges(state.facadeAz, YEAR, state.doy);
   kpis($('kpisDay'), [
     { hero: true, label: L('Soleil direct sur la fenêtre', 'Direct sun on the window'), value: durationLabel(dayData.h1), note: L(`sur <b>${durationLabel(dayData.h0)}</b> de soleil face à la façade`, `out of <b>${durationLabel(dayData.h0)}</b> of sun facing the façade`) },
-    { label: L('Énergie solaire reçue', 'Solar energy received'), value: fmt(dayData.e1), unit: 'Wh/m²', note: L(`façade dégagée : <b>${fmt(dayData.e0)} Wh/m²</b>`, `unobstructed façade: <b>${fmt(dayData.e0)} Wh/m²</b>`) },
-    { label: L('Énergie retirée par le vis-à-vis', 'Energy cut by the building opposite'), value: dayData.e0 > 1 ? fmt((1 - dayData.e1 / dayData.e0) * 100) : '—', unit: '%', meter: dayData.e0 > 1 ? 1 - dayData.e1 / dayData.e0 : 0 },
+    { label: L('Énergie solaire reçue', 'Solar energy received'), value: fmt(dayData.e1), unit: 'Wh/m²', note: L(`façade dégagée : <b>${fmt(dayData.e0)} Wh/m²</b> · journée entière : <b>${fmt(dayData.day1)} Wh/m²</b>`, `unobstructed façade: <b>${fmt(dayData.e0)} Wh/m²</b> · whole day: <b>${fmt(dayData.day1)} Wh/m²</b>`) },
+    { label: L('Énergie retirée par le vis-à-vis', 'Energy cut by the building opposite'), value: dayData.e0 > 1 ? fmt((1 - dayData.e1 / dayData.e0) * 100) : '—', unit: '%', meter: dayData.e0 > 1 ? 1 - dayData.e1 / dayData.e0 : 0,
+      note: dayData.day0 > 1 ? L(`sur la journée entière : <b>${fmt((1 - dayData.day1 / dayData.day0) * 100)} %</b>`, `over the whole day: <b>${fmt((1 - dayData.day1 / dayData.day0) * 100)} %</b>`) : '' },
     { label: L("Angle d'obstruction", 'Obstruction angle'), value: alpha > 0 ? fmt(alpha) : '0', unit: '°', note: L('vu du milieu de la fenêtre', 'seen from the middle of the window') },
     { label: L('Ciel visible', 'Visible sky'), value: fmt(skyView(state, zc) * 100), unit: '%', note: L('par rapport à une façade dégagée', 'relative to an unobstructed façade') },
     { label: L('Rapport H / L', 'H / W ratio'), value: fmt(state.hOpp / state.width, 2), note: L('hauteur en face / largeur de rue', 'opposite height / street width') },
@@ -226,13 +227,13 @@ function recomputeSlow() {
   for (let mo = 0; mo < 12; mo++) {
     const doy = Math.round((Date.UTC(YEAR, mo, 21) - Date.UTC(YEAR, 0, 0)) / 86400e3);
     const d = streetDay(state, YEAR, doy, state.floor, 15);
-    data.push({ without: d.h0, withP: d.h1, e0: d.e0, e1: d.e1 });
+    data.push({ without: d.h0, withP: d.h1, e0: d.day0, e1: d.day1 });
   }
   const curMonth = dayOfYearToDate(YEAR, state.doy).getUTCMonth();
   renderMonthChart($('monthChart'), {
     data, currentMonth: curMonth, unit: 'h', axisLabel: L('heures / jour', 'hours / day'), yMax: 16,
     labels: [L('Façade dégagée', 'Unobstructed façade'), L("Avec l'immeuble d'en face", 'With the building opposite')],
-    note: (d) => L(`Énergie reçue : ${fmt(d.e1)} Wh/m² (dégagée : ${fmt(d.e0)})`, `Energy received: ${fmt(d.e1)} Wh/m² (unobstructed: ${fmt(d.e0)})`),
+    note: (d) => L(`Énergie reçue sur la journée : ${fmt(d.e1)} Wh/m² (dégagée : ${fmt(d.e0)})`, `Energy received over the day: ${fmt(d.e1)} Wh/m² (unobstructed: ${fmt(d.e0)})`),
   });
   renderFloors();
   renderInsights(data);
@@ -656,13 +657,13 @@ function renderInsights() {
   }
 
   const summer = streetDay(state, YEAR, 202, state.floor);
-  if (summer.e0 > 1) {
-    const loss = 1 - summer.e1 / summer.e0;
+  if (summer.day0 > 1) {
+    const loss = 1 - summer.day1 / summer.day0;
     const tail = loss > 0.3
       ? L("Il joue ici le rôle d'une vraie protection solaire d'été.", 'Here it works as effective summer shading.')
       : L("En été, le soleil passe surtout au-dessus des toits d'en face : une protection reste nécessaire.", 'In summer the sun mostly passes over the opposite roofs: shading is still needed.');
-    items.push(['sun', L(`Le 21 juillet, l'immeuble d'en face retire ${fmt(loss * 100)} % du rayonnement reçu par la fenêtre. ${tail}`,
-      `On 21 July, the building opposite cuts ${fmt(loss * 100)} % of the radiation reaching the window. ${tail}`)]);
+    items.push(['sun', L(`Le 21 juillet, l'immeuble d'en face retire ${fmt(loss * 100)} % du rayonnement reçu par la fenêtre sur la journée. ${tail}`,
+      `On 21 July, the building opposite cuts ${fmt(loss * 100)} % of the radiation reaching the window over the day. ${tail}`)]);
   }
   if (state.floor < maxFloor()) {
     const top = streetDay(state, YEAR, state.doy, maxFloor());
