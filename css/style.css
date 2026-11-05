@@ -11,8 +11,9 @@
   --line: #e4e3df;
   --rule: #111110;
 
-  --c-coral: #fa554f;   /* logo */
-  --c-coral-2: #fb635f; /* aplat */
+  --c-coral: #007cfd;   /* logo */
+  --c-red: #fa554f;  /* rouge sémantique : échecs, erreurs, négatif */
+  --c-coral-2: #2b92fd; /* aplat */
   --c-sun: #ffca7d;
   --c-orange: #ff6600;
   --c-blue: #3788ff;
