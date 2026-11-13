@@ -1,4 +1,4 @@
-# Soleil & protections — Paris
+# Umbra — soleil & protections, Paris
 
 Simulateur pédagogique en ligne : rayonnement solaire à Paris et efficacité des
 protections solaires extérieures mobiles (volets battants, volets pliants,

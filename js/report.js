@@ -34,7 +34,7 @@ export function exportReport(ctx) {
         <div class="rp-meta">${L('Fiche protection solaire · Paris', 'Solar shading sheet · Paris')}<br>${today}</div>
       </header>
       <div class="rp-title">
-        <span>${L('Soleil &amp; protections', 'Sun &amp; shading')}</span>
+        <span>Umbra · ${L('Soleil &amp; protections', 'Sun &amp; shading')}</span>
         <h1>${ctx.title}</h1>
         <p>${ctx.setting}</p>
       </div>
