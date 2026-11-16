@@ -78,7 +78,35 @@ export const PROTECTIONS = {
     text: L('Projetée au-dessus de la fenêtre, la toile arrête le soleil haut du sud mais devient inefficace face au soleil bas du matin et du soir.',
       'Projected above the window, the fabric stops the high southern sun but becomes ineffective against the low morning and evening sun.'),
   },
+  casquette: {
+    label: L('Casquette', 'Overhang'),
+    short: L('Avancée horizontale fixe au-dessus de la baie', 'Fixed horizontal projection above the opening'),
+    view: L('Totale', 'Full'),
+    text: L("Avancée fixe au-dessus de la fenêtre, en béton ou en métal. Elle arrête le soleil haut d'été au sud et laisse entrer le soleil bas d'hiver, sans rien à manœuvrer ; elle ne fait rien contre le soleil bas du matin et du soir.",
+      'Fixed projection above the window, in concrete or metal. It stops the high summer sun to the south and lets the low winter sun in, with nothing to operate; it does nothing against the low morning and evening sun.'),
+  },
+  ailettes: {
+    label: L('Brise-soleil verticaux', 'Vertical fins'),
+    short: L("Ailettes fixes d'un côté ou des deux côtés de la baie", 'Fixed fins on one or both sides of the opening'),
+    view: L('Totale de face, réduite de biais', 'Full head-on, reduced at an angle'),
+    text: L("Lames verticales fixes perpendiculaires à la façade. Elles coupent le soleil qui arrive de biais par le côté ; face à la fenêtre ou haut dans le ciel, il passe entre elles. Une seule ailette, placée du bon côté, suffit souvent à l'est ou à l'ouest.",
+      'Fixed vertical blades perpendicular to the façade. They cut the sun arriving at a slant from the side; facing the window or high in the sky, it passes between them. On east or west façades, a single fin on the right side is often enough.'),
+  },
+  combine: {
+    label: L('Casquette et brise-soleil', 'Overhang and fins'),
+    short: L('Avancée horizontale et ailettes verticales, en cadre', 'Horizontal projection and vertical fins, forming a frame'),
+    view: L('Totale de face, réduite de biais', 'Full head-on, reduced at an angle'),
+    text: L("La casquette arrête le soleil haut, les ailettes le soleil de biais : ensemble, elles forment un cadre qui protège sur une plus grande partie de la course du soleil, sans aucune manœuvre. Seul le soleil bas et de face passe encore.",
+      'The overhang stops the high sun, the fins the sun at a slant: together they form a frame that protects over a larger part of the sun path, with nothing to operate. Only the low sun facing the window still gets through.'),
+  },
 };
+
+/** Protections fixes (casquette, ailettes) : sans déploiement ni teinte dans le calcul. */
+export const FIXED = ['casquette', 'ailettes', 'combine'];
+
+// Épaisseurs de la casquette et des ailettes (m), pour le calcul et la vue 3D
+export const OVERHANG_T = 0.1;
+export const FIN_T = 0.06;
 
 const G1 = 5; // W/(m²·K)
 const G2 = 10; // W/(m²·K)
@@ -106,7 +134,36 @@ export function defaultConfig() {
     ajoure: false, // volet roulant à lames ajourées
     bannePro: 1.2, // projection du store banne (m)
     banneAngle: 25, // inclinaison sous l'horizontale (°)
+    ohDepth: 0.6, // casquette : avancée depuis le nu de la façade (m)
+    ohGap: 0.15, // casquette : hauteur de sa sous-face au-dessus de la baie (m)
+    ohSide: 0.3, // casquette : débord latéral de chaque côté de la baie (m)
+    finDepth: 0.4, // ailettes : avancée depuis le nu de la façade (m)
+    finGap: 0.15, // ailettes : écart entre le tableau et la face de l'ailette (m)
+    finSide: 'deux', // ailettes : 'gauche', 'droite' (vu depuis l'extérieur) ou 'deux'
   };
+}
+
+/**
+ * Casquette et ailettes, partagées par le calcul et la vue 3D (repère de la façade,
+ * y = 0 en bas du vitrage). Renvoie { overhang, fins } :
+ *  - overhang : { x0, x1, y, depth } (sous-face à la hauteur y), ou null ;
+ *  - fins : [{ x, side, y0, y1, depth }] (x : face côté baie, side : −1 gauche, +1 droite).
+ * Les ailettes montent jusqu'à la sous-face de la casquette, ou jusqu'en haut du chambranle.
+ */
+export function fixedShading(cfg) {
+  const { W, H } = cfg;
+  const withOh = cfg.type === 'casquette' || cfg.type === 'combine';
+  const withFins = cfg.type === 'ailettes' || cfg.type === 'combine';
+  const overhang = withOh
+    ? { x0: -W / 2 - cfg.ohSide, x1: W / 2 + cfg.ohSide, y: H + cfg.ohGap, depth: cfg.ohDepth }
+    : null;
+  const fins = [];
+  if (withFins) {
+    const top = overhang ? overhang.y : H + 0.12;
+    const sides = cfg.finSide === 'gauche' ? [-1] : cfg.finSide === 'droite' ? [1] : [-1, 1];
+    for (const side of sides) fins.push({ x: side * (W / 2 + cfg.finGap), side, y0: 0, y1: top, depth: cfg.finDepth });
+  }
+  return { overhang, fins };
 }
 
 // ---------- Vecteurs ----------
@@ -236,6 +293,23 @@ export function buildGeometry(cfg) {
         u, v, n: normalize(cross(u, v)), near: 0,
         mat: () => m,
       });
+      break;
+    }
+    case 'casquette':
+    case 'ailettes':
+    case 'combine': {
+      // Obstacles fixes, opaques et éloignés du vitrage : la chaleur qu'ils absorbent
+      // reste dehors. Casquette : sous-face et chant ; ailettes : face côté baie.
+      const { overhang: oh, fins } = fixedShading(cfg);
+      const add = (o, u, v) => geo.quads.push({ o, u, v, n: normalize(cross(u, v)), near: 0, mat: () => opaque(rhoC) });
+      if (oh && oh.depth > 0.005) {
+        const u = { x: oh.x1 - oh.x0, y: 0, z: 0 };
+        add({ x: oh.x0, y: oh.y, z: e }, u, { x: 0, y: 0, z: oh.depth });
+        add({ x: oh.x0, y: oh.y, z: e + oh.depth }, u, { x: 0, y: OVERHANG_T, z: 0 });
+      }
+      for (const f of fins) {
+        if (f.depth > 0.005) add({ x: f.x, y: f.y0, z: e }, { x: 0, y: f.y1 - f.y0, z: 0 }, { x: 0, y: 0, z: f.depth });
+      }
       break;
     }
     case 'custom': {

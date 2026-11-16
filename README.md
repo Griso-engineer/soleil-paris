@@ -2,7 +2,8 @@
 
 Simulateur pédagogique en ligne : rayonnement solaire à Paris et efficacité des
 protections solaires extérieures mobiles (volets battants, volets pliants,
-volet roulant, brise-soleil orientable, store toile, store banne).
+volet roulant, brise-soleil orientable, store toile, store banne) et fixes
+(casquette, brise-soleil verticaux d'un côté ou des deux, ou les deux ensemble).
 
 **En ligne : https://griso-engineer.github.io/soleil-paris/**
 
@@ -80,14 +81,14 @@ N'importe quel hébergement statique convient, il suffit de publier le dossier t
 - **Ombrage** : une grille de points sur le vitrage, un rayon par point vers le
   soleil, et 392 directions hémisphériques (pondération cosinus) pour le diffus du
   ciel et du sol. Obstacles : tableau, vantaux (quadrilatères orientés), toile du
-  store banne, protection verticale dans le tableau.
+  store banne, casquette et ailettes, protection verticale dans le tableau.
 - **Lames** (BSO, persiennes) : transmission directe géométrique à partir de
   l'angle de profil, `f = 1 − w·|sin(φ+β)| / (s·cos φ)`, plus une part
   inter-réfléchie dépendant de la teinte.
 - **Apports** : NF EN ISO 52022-1, méthode simplifiée pour une protection
   extérieure, `g_tot = τ·g + α·G/G₂ + τ·(1−g)·G/G₁` (G₁ = 5, G₂ = 10 W/m²K),
   appliquée rayon par rayon, avec un facteur d'angle d'incidence du vitrage
-  (Martin & Ruiz). Les obstacles éloignés (store banne, vantaux ouverts) ne
+  (Martin & Ruiz). Les obstacles éloignés (store banne, vantaux ouverts, casquette, ailettes) ne
   renvoient pas de chaleur secondaire vers la vitre.
 
 ### Limites

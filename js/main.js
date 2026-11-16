@@ -38,6 +38,9 @@ const ICONS = {
   bso: '<rect x="5" y="3" width="14" height="18" rx="1"/><path d="M5 6l14-1.5M5 9.5l14-1.5M5 13l14-1.5M5 16.5l14-1.5"/>',
   screen: '<rect x="5" y="3" width="14" height="18" rx="1"/><rect x="5" y="3" width="14" height="12" fill="currentColor" fill-opacity=".18" stroke="none"/><path d="M5 15h14"/>',
   banne: '<rect x="6" y="8" width="12" height="13" rx="1"/><path d="M3 6h18l-3 6H6z"/>',
+  casquette: '<rect x="6" y="9" width="12" height="12" rx="1"/><path d="M3 5.5h18V8H3z"/>',
+  ailettes: '<rect x="7" y="4" width="10" height="17" rx="1"/><path d="M4 3L1.5 4.5v17L4 20zM20 3l2.5 1.5v17L20 20z"/>',
+  combine: '<rect x="7" y="8" width="10" height="13" rx="1"/><path d="M2 4.5h20V7H2zM4.5 7v14M19.5 7v14"/>',
 };
 
 const DEPLOY_LABEL = {
@@ -106,6 +109,11 @@ const sliders = {
   openAngle: (v) => `${v}°`,
   bannePro: (v) => `${fmt(v, 1)} m`,
   banneAngle: (v) => `${v}°`,
+  ohDepth: (v) => `${fmt(v, 2)} m`,
+  ohGap: (v) => `${Math.round(v * 100)} cm`,
+  ohSide: (v) => `${Math.round(v * 100)} cm`,
+  finDepth: (v) => `${fmt(v, 2)} m`,
+  finGap: (v) => `${Math.round(v * 100)} cm`,
 };
 for (const id of Object.keys(sliders)) {
   $(id).addEventListener('input', (e) => set({ [id]: parseFloat(e.target.value) }));
@@ -118,6 +126,7 @@ const segs = {
   louvered: (v) => v === 'true',
   openness: (v) => parseFloat(v),
   color: (v) => v,
+  finSide: (v) => v,
   view: (v) => v,
 };
 for (const [id, parse] of Object.entries(segs)) {
@@ -147,7 +156,8 @@ try {
 // Mise à jour
 // ---------------------------------------------------------------------------
 
-const GEOMETRY_KEYS = ['facadeAz', 'W', 'H', 'e', 'glazing', 'type', 'deploy', 'slatAngle', 'openAngle', 'louvered', 'color', 'openness', 'ajoure', 'bannePro', 'banneAngle'];
+const GEOMETRY_KEYS = ['facadeAz', 'W', 'H', 'e', 'glazing', 'type', 'deploy', 'slatAngle', 'openAngle', 'louvered', 'color', 'openness', 'ajoure', 'bannePro', 'banneAngle',
+  'ohDepth', 'ohGap', 'ohSide', 'finDepth', 'finGap', 'finSide'];
 
 function set(patch) {
   const prev = { ...state };
@@ -269,6 +279,10 @@ const COMPARE = [
   { type: 'bso', label: PROTECTIONS.bso.label, setting: L('lames à 45°', 'slats at 45°'), patch: { deploy: 1, slatAngle: 45 } },
   { type: 'screen', label: PROTECTIONS.screen.label, setting: L('toile à 5 %', '5 % fabric'), patch: { deploy: 1, openness: 5 } },
   { type: 'banne', label: PROTECTIONS.banne.label, setting: L('avancée 1,5 m', '1.5 m projection'), patch: { deploy: 1, bannePro: 1.5, banneAngle: 25 } },
+  { type: 'casquette', label: PROTECTIONS.casquette.label, setting: L('avancée 0,8 m', '0.8 m projection'), patch: { ohDepth: 0.8, ohGap: 0.15, ohSide: 0.3 } },
+  { type: 'ailettes', label: PROTECTIONS.ailettes.label, setting: L('deux côtés, 0,4 m', 'both sides, 0.4 m'), patch: { finDepth: 0.4, finGap: 0.15, finSide: 'deux' } },
+  { type: 'combine', label: PROTECTIONS.combine.label, setting: L('0,8 m et deux ailettes de 0,4 m', '0.8 m and two 0.4 m fins'),
+    patch: { ohDepth: 0.8, ohGap: 0.15, ohSide: 0.3, finDepth: 0.4, finGap: 0.15, finSide: 'deux' } },
 ];
 
 function recomputeSlow() {
@@ -375,8 +389,30 @@ function settingLabel() {
     case 'bso': return L(`${Math.round(state.deploy * 100)} %, lames à ${state.slatAngle}°`, `${Math.round(state.deploy * 100)} %, slats at ${state.slatAngle}°`);
     case 'screen': return L(`${Math.round(state.deploy * 100)} %, toile ${state.openness} %`, `${Math.round(state.deploy * 100)} %, ${state.openness} % fabric`);
     case 'banne': return L(`avancée ${fmt(state.bannePro * state.deploy, 1)} m, ${state.banneAngle}°`, `${fmt(state.bannePro * state.deploy, 1)} m projection, ${state.banneAngle}°`);
+    case 'casquette': return ohLabel();
+    case 'ailettes': return finLabel();
+    case 'combine': return `${ohLabel()} ; ${finLabel()}`;
     default: return '';
   }
+}
+
+function ohLabel() {
+  return L(`casquette de ${fmt(state.ohDepth, 2)} m, ${Math.round(state.ohGap * 100)} cm au-dessus de la baie`,
+    `${fmt(state.ohDepth, 2)} m overhang, ${Math.round(state.ohGap * 100)} cm above the opening`);
+}
+function finLabel() {
+  const where = state.finSide === 'deux'
+    ? L('deux côtés', 'both sides')
+    : L(`côté ${sideName(state.finSide)}`, `${sideName(state.finSide)} side`);
+  return L(`ailettes de ${fmt(state.finDepth, 2)} m, ${where}`, `${fmt(state.finDepth, 2)} m fins, ${where}`);
+}
+
+// Côtés de la baie vus depuis la rue : la droite regarde l'azimut de la façade − 90°.
+function sideAz(side) {
+  return (((state.facadeAz + (side === 'droite' ? -90 : 90)) % 360) + 360) % 360;
+}
+function sideName(side) {
+  return orientationName(sideAz(side));
 }
 
 // ---------------------------------------------------------------------------
@@ -615,6 +651,7 @@ function protectionTip(oc) {
     'Against the low eastern or western sun, the awning lets most of the radiation through under the fabric. Compare with louvres or a screen.');
   if (t === 'banne') return L("Au sud, le store banne coupe le soleil haut de midi. Plus il avance et s'incline, plus il protège tard dans la journée, au prix de la vue vers le ciel.",
     'Facing south, the awning cuts the high noon sun. The further it projects and slopes, the later in the day it protects, at the cost of the view of the sky.');
+  if (t === 'casquette' || t === 'ailettes' || t === 'combine') return fixedTip(oc);
   if (t === 'battants' && state.openAngle >= 60 && state.openAngle <= 120) return L('Ouverts à angle droit, les vantaux deviennent des ailettes verticales : utiles quand le soleil arrive de biais, inutiles quand il est face à la fenêtre.',
     'Open at right angles, the leaves become vertical fins: useful when the sun comes at a slant, useless when it faces the window.');
   if (t === 'battants' && state.openAngle >= 150) return L("Rabattus contre la façade, les volets ne protègent plus rien : le résultat est celui d'une fenêtre nue.",
@@ -638,6 +675,41 @@ function protectionTip(oc) {
   if (state.color === 'fonce') return L("Une teinte foncée absorbe davantage : une petite partie de cette chaleur rejoint la vitre. À l'extérieur, l'effet reste modeste.",
     'A dark colour absorbs more: a small part of that heat reaches the glass. Outside, the effect stays modest.');
   return PROTECTIONS[t].text;
+}
+
+// Conseils pour les protections fixes, selon l'orientation de la façade
+function fixedTip(oc) {
+  const t = state.type;
+  // Côté de la baie le plus tourné vers le sud : c'est de là que vient le soleil de biais
+  const south = Math.abs(sideAz('gauche') - 180) <= Math.abs(sideAz('droite') - 180) ? 'gauche' : 'droite';
+  const southName = sideName(south);
+  const southSide = south === 'gauche' ? L('gauche', 'left') : L('droit', 'right');
+  if (oc === 'N') return L("Au nord, le soleil direct est rare et rasant : une protection fixe apporte peu ici, elle prive surtout la pièce d'un peu de lumière du ciel.",
+    'Facing north, direct sun is rare and grazing: fixed shading brings little here and mostly takes away some daylight from the sky.');
+  if (t === 'casquette' && oc === 'S') {
+    // Hauteur de vitrage ombrée à midi le 21 juin (65°), tableau compris
+    const h = Math.max(0, Math.min(state.H, (state.e + state.ohDepth) * Math.tan(65 * Math.PI / 180) - state.ohGap));
+    return L(`Au sud, la casquette est la protection fixe la plus efficace : à midi le 21 juin, le soleil est à 65° de haut et l'avancée, avec le tableau, ombre ${fmt(h, 1)} m des ${fmt(state.H, 2)} m de vitrage. En hiver, le soleil passe dessous.`,
+      `Facing south, an overhang is the most effective fixed shading: at noon on 21 June the sun is 65° high and the projection, with the reveal, shades ${fmt(h, 1)} m of the ${fmt(state.H, 2)} m of glazing. In winter, the sun passes underneath.`);
+  }
+  if (t === 'casquette' && (oc === 'SE' || oc === 'SO')) return L("La casquette arrête le soleil haut du milieu de journée, mais le soleil plus bas, qui arrive de biais en début ou en fin de journée, passe dessous. Des ailettes du côté sud ferment le cadre.",
+    'The overhang stops the high midday sun, but the lower sun arriving at a slant early or late in the day passes underneath. Fins on the south side close the frame.');
+  if (t === 'casquette') return L("À l'est comme à l'ouest, le soleil arrive bas et de face : il passe sous la casquette. Ajoutez des ailettes du côté sud, ou préférez une protection mobile verticale.",
+    'East or west, the sun comes in low and head-on: it passes under the overhang. Add fins on the south side, or choose a movable vertical shading.');
+  if (oc === 'E' || oc === 'O') {
+    const ok = state.finSide === 'deux' || state.finSide === south;
+    return ok
+      ? L(`Façade ${orientationName(state.facadeAz)} : le soleil de biais vient du sud, donc du côté ${southSide} de la baie vu depuis la rue (${southName}). L'ailette de ce côté fait l'essentiel du travail ; contre le soleil bas et de face, elle ne peut rien.`,
+        `${cap(orientationName(state.facadeAz))}-facing façade: the slanting sun comes from the south, so from the ${southSide} side of the opening seen from the street (${southName}). The fin on that side does most of the work; against the low sun facing the window, it can do nothing.`)
+      : L(`Façade ${orientationName(state.facadeAz)} : l'ailette est du côté ${sideName(state.finSide)}, d'où le soleil ne vient presque jamais. Placez-la du côté ${southSide} (${southName}).`,
+        `${cap(orientationName(state.facadeAz))}-facing façade: the fin is on the ${sideName(state.finSide)} side, where the sun hardly ever comes from. Put it on the ${southSide} side (${southName}).`);
+  }
+  if (t === 'ailettes' && oc !== 'S') return L("Les ailettes coupent le soleil qui arrive de biais, mais pas le soleil bas qui arrive presque de face aux heures chaudes. Associez-les à une casquette, ou à une protection mobile.",
+    'Fins cut the sun arriving at a slant, but not the low sun arriving almost head-on during the hottest hours. Combine them with an overhang, or with movable shading.');
+  if (t === 'ailettes') return L("Au sud, les ailettes n'arrêtent que le soleil de biais du matin et du soir ; le soleil haut de midi passe entre elles. Combinées à une casquette, elles ferment le cadre.",
+    'Facing south, fins only stop the slanting morning and evening sun; the high noon sun passes between them. Combined with an overhang, they close the frame.');
+  return L("Le cadre casquette et ailettes protège sur l'essentiel de la course du soleil. Jouez sur les deux avancées : au sud, une casquette plus profonde fait souvent mieux que des ailettes plus longues.",
+    'The overhang-and-fins frame protects over most of the sun path. Try both projections: facing south, a deeper overhang often does better than longer fins.');
 }
 
 // ---------------------------------------------------------------------------
@@ -668,6 +740,10 @@ function syncControls() {
   }
   $('deployLabel').textContent = DEPLOY_LABEL[state.type] || L('Déploiement', 'Extension');
   $('typeDesc').textContent = PROTECTIONS[state.type].text;
+  $('finSideHint').textContent = L(
+    `Vu depuis la rue : à gauche le côté ${sideName('gauche')}, à droite le côté ${sideName('droite')}.`,
+    `Seen from the street: on the left the ${sideName('gauche')} side, on the right the ${sideName('droite')} side.`
+  );
 }
 
 function dateLabel(doy) {
@@ -739,6 +815,7 @@ function readURL() {
   if (!GLAZINGS[state.glazing]) state.glazing = d.glazing;
   if (!PROTECTIONS[state.type]) state.type = d.type;
   if (!['clair', 'moyen', 'fonce'].includes(state.color)) state.color = d.color;
+  if (!['gauche', 'droite', 'deux'].includes(state.finSide)) state.finSide = d.finSide;
   if (!['ext', 'int', 'coupe'].includes(state.view)) state.view = 'ext';
   state.doy = Math.max(1, Math.min(365, Math.round(state.doy)));
   state.hour = Math.max(0, Math.min(24, state.hour));

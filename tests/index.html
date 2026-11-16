@@ -18,6 +18,7 @@
     import { sunPosition, parisLocalToUTC, sunTimes } from '../js/solar.js';
     import { streetDay, defaultStreet } from '../js/street.js';
     import { fmtHour } from '../js/charts.js';
+    import { defaultConfig, makeModel, sunVectorLocal } from '../js/shading.js';
 
     const rows = [];
     const check = (name, ok, detail) => rows.push({ name, ok: !!ok, detail });
@@ -56,6 +57,30 @@
       }
       const n = streetDay({ ...base, facadeAz: 0 }, 2026, doyOf(2026, 3, 20));
       check('Façade nord à l\'équinoxe : pas de soleil direct, mais du diffus', n.h0 < 0.2 && n.day1 > 50, `${n.h0.toFixed(2)} h de soleil, ${n.day1.toFixed(0)} Wh/m²`);
+    }
+    // --- Casquette et ailettes : part du vitrage au soleil, comparée à l'ombre portée
+    //     calculée à la main (façade sud, sans tableau, vitrage de 1,20 × 2,00 m) ---
+    {
+      const base = { ...defaultConfig(), facadeAz: 180, W: 1.2, H: 2, e: 0 };
+      const lit = (cfg, alt, az) => makeModel(cfg, 40).mask(sunVectorLocal(alt, az, 180));
+      // Casquette de 0,50 m, 10 cm au-dessus de la baie, soleil de face à 60° :
+      // ombre de 0,50·tan 60° − 0,10 = 0,766 m sous le haut du vitrage
+      const oh = { ...base, type: 'casquette', ohDepth: 0.5, ohGap: 0.1, ohSide: 1 };
+      near('Casquette 0,50 m, soleil de face à 60° : part au soleil', lit(oh, 60, 180), 1 - 0.766 / 2, 0.03);
+      near('Casquette 0,50 m, soleil de face à 10° : tout au soleil', lit(oh, 10, 180), 1, 0.001);
+      // Ailettes de 0,50 m à 10 cm de la baie, soleil rasant venant du sud-ouest (45° de biais) :
+      // l'ailette de gauche (vue de la rue, côté ouest) ombre 0,50 − 0,10 = 0,40 m de largeur
+      const fins = { ...base, type: 'ailettes', finDepth: 0.5, finGap: 0.1 };
+      near('Ailette à gauche, soleil de biais par la gauche : part au soleil', lit({ ...fins, finSide: 'gauche' }, 5, 225), 1 - 0.4 / 1.2, 0.03);
+      near('Ailette à droite, soleil de biais par la gauche : sans effet', lit({ ...fins, finSide: 'droite' }, 5, 225), 1, 0.001);
+      near('Deux ailettes, soleil de face : sans effet', lit({ ...fins, finSide: 'deux' }, 30, 180), 1, 0.001);
+      // Le cadre combiné ombre au moins autant que chacun de ses éléments
+      const combo = { ...fins, type: 'combine', finSide: 'deux', ohDepth: oh.ohDepth, ohGap: oh.ohGap, ohSide: oh.ohSide };
+      for (const [alt, az] of [[60, 180], [30, 230], [15, 260]]) {
+        const c = lit(combo, alt, az);
+        check(`Casquette et ailettes, soleil à ${alt}° et ${az}° : au moins autant d'ombre que chaque élément`,
+          c <= lit(oh, alt, az) + 1e-9 && c <= lit({ ...fins, finSide: 'deux' }, alt, az) + 1e-9, `${c.toFixed(3)} au soleil`);
+      }
     }
     // --- Affichage de l'heure : le curseur donne des valeurs comme 11,99999 ---
     check('fmtHour(11,999995) affiche 12h00', fmtHour(144 * 0.0833333) === '12h00', fmtHour(144 * 0.0833333));

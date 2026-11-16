@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { sunVectorLocal, foldingLeaves, maskColor } from './shading.js';
+import { sunVectorLocal, foldingLeaves, fixedShading, maskColor, OVERHANG_T, FIN_T } from './shading.js';
 import { L } from './i18n.js';
 
 const WALL_HALF = 3.2;
@@ -204,6 +204,7 @@ export class SolarScene {
       m.needsUpdate = true;
     }
     if (this.section) this.section.visible = this.view === 'coupe';
+    for (const o of this.prot.children) if (o.userData.sectionOnly) o.visible = this.view === 'coupe';
   }
 
   // Les murs ôtés pour la vue intérieure ne s'écrivent plus à l'écran mais portent
@@ -398,8 +399,8 @@ export class SolarScene {
     cut(-ROOM_DEPTH - 0.15, -ROOM_DEPTH, -SLAB, CEIL + SLAB, xr);
     g.add(this.section);
 
-    // --- Cotes en millimètres ---
-    this.addDimensions(cfg);
+    // Les cotes en millimètres sont dessinées avec la protection (setProtection),
+    // pour passer au-dessus d'une casquette.
     this.applyClip();
     this.applyHidden();
     this.applyViewDetails();
@@ -464,11 +465,13 @@ export class SolarScene {
     const { W, H, e } = cfg;
     const sill = sillHeight(H);
     const top = sill + H;
-    const g = this.building;
+    const g = this.prot;
     const z = e + 0.04;
     const ext = [];
-    // cote de largeur, au-dessus du chambranle
-    const yd = top + 0.32;
+    // cote de largeur, au-dessus du chambranle, ou assez haut au-dessus d'une casquette
+    // pour rester visible derrière son avancée
+    const { overhang, fins } = fixedShading(cfg);
+    const yd = overhang ? Math.min(WALL_TOP - 0.2, sill + overhang.y + OVERHANG_T + 0.2 + 0.6 * overhang.depth) : top + 0.32;
     ext.push(-W / 2, yd, z, W / 2, yd, z);
     ext.push(-W / 2, yd - 0.06, z, -W / 2, yd + 0.06, z, W / 2, yd - 0.06, z, W / 2, yd + 0.06, z);
     // cote de hauteur, à gauche
@@ -483,9 +486,9 @@ export class SolarScene {
     hl.material.rotation = Math.PI / 2;
     hl.position.set(xd - 0.14, sill + H / 2, z);
     g.add(hl);
-    if (e > 0.02) {
+    if (e > 0.02 && !fins.length) { // les ailettes cacheraient la cote du tableau
       const el = textSprite(String(Math.round(e * 1000)));
-      el.position.set(W / 2 + 0.3, top + 0.06, e / 2);
+      el.position.set(W / 2 + 0.3, overhang ? sill + 0.1 : top + 0.06, e / 2);
       g.add(el);
     }
   }
@@ -633,9 +636,38 @@ export class SolarScene {
         }
         break;
       }
+      case 'casquette':
+      case 'ailettes':
+      case 'combine': {
+        // Même géométrie que le calcul (fixedShading) ; béton ou métal laqué, en blanc
+        const solid = paper(0xffffff);
+        const { overhang: oh, fins } = fixedShading(cfg);
+        if (oh) {
+          box(g, oh.x0, oh.x1, sill + oh.y, sill + oh.y + OVERHANG_T, e, e + oh.depth, solid);
+          // En vue Coupe, la casquette est coupée dans l'axe de la baie : hachures
+          const tex = hatchTexture();
+          tex.repeat.set(oh.depth / 0.4, OVERHANG_T / 0.4);
+          const m = new THREE.Mesh(
+            new THREE.PlaneGeometry(oh.depth, OVERHANG_T),
+            new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide })
+          );
+          m.rotation.y = Math.PI / 2;
+          m.position.set(0, sill + oh.y + OVERHANG_T / 2, e + oh.depth / 2);
+          m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), lineMat()));
+          m.userData.sectionOnly = true;
+          m.visible = this.view === 'coupe';
+          g.add(m);
+        }
+        for (const f of fins) {
+          const xa = f.side < 0 ? f.x - FIN_T : f.x;
+          box(g, xa, xa + FIN_T, sill + f.y0, sill + f.y1, e, e + f.depth, solid);
+        }
+        break;
+      }
       default:
         break;
     }
+    this.addDimensions(cfg);
     this.applyClip();
   }
 
