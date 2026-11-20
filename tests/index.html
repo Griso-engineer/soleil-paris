@@ -18,7 +18,7 @@
     import { sunPosition, parisLocalToUTC, sunTimes } from '../js/solar.js';
     import { streetDay, defaultStreet } from '../js/street.js';
     import { fmtHour } from '../js/charts.js';
-    import { defaultConfig, makeModel, sunVectorLocal } from '../js/shading.js';
+    import { defaultConfig, makeModel, sunVectorLocal, dailyProfile, integrate } from '../js/shading.js';
 
     const rows = [];
     const check = (name, ok, detail) => rows.push({ name, ok: !!ok, detail });
@@ -81,6 +81,23 @@
         check(`Casquette et ailettes, soleil à ${alt}° et ${az}° : au moins autant d'ombre que chaque élément`,
           c <= lit(oh, alt, az) + 1e-9 && c <= lit({ ...fins, finSide: 'deux' }, alt, az) + 1e-9, `${c.toFixed(3)} au soleil`);
       }
+    }
+    // --- Réglage selon le moment de la journée : la courbe suit le modèle de chaque heure ---
+    {
+      const base = { ...defaultConfig(), facadeAz: 180 };
+      const bare = makeModel({ ...base, type: 'none' }, 8);
+      const shut = makeModel({ ...base, type: 'roulant', deploy: 1, ajoure: false }, 8);
+      const doy = doyOf(2026, 6, 21);
+      const mixed = dailyProfile((h) => (h < 12 ? bare : shut), 2026, doy, 15);
+      const a = dailyProfile(bare, 2026, doy, 15);
+      const b = dailyProfile(shut, 2026, doy, 15);
+      check('Programme : avant 12 h, la courbe est celle de la fenêtre nue',
+        mixed.every((p, i) => p.h >= 12 || Math.abs(p.gain - a[i].gain) < 1e-9), 'identique de 0 h à 12 h');
+      check('Programme : après 12 h, la courbe est celle du volet baissé',
+        mixed.every((p, i) => p.h < 12 || Math.abs(p.gain - b[i].gain) < 1e-9), 'identique de 12 h à 24 h');
+      const e = (p) => integrate(p, 'gain');
+      check('Programme : l\'énergie de la journée est entre les deux réglages', e(b) <= e(mixed) && e(mixed) <= e(a),
+        `${e(b).toFixed(2)} ≤ ${e(mixed).toFixed(2)} ≤ ${e(a).toFixed(2)} kWh/m²`);
     }
     // --- Affichage de l'heure : le curseur donne des valeurs comme 11,99999 ---
     check('fmtHour(11,999995) affiche 12h00', fmtHour(144 * 0.0833333) === '12h00', fmtHour(144 * 0.0833333));

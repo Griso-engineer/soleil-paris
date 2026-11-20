@@ -213,6 +213,27 @@ input[type="range"]:focus-visible { outline: 2px solid var(--c-coral); outline-o
 .type-desc { font-size: 13px; color: var(--muted); margin: 12px 0 16px; min-height: 3em; }
 .params .field[hidden] { display: none; }
 
+/* Réglage selon le moment de la journée */
+.slots[hidden], .slot-marks[hidden] { display: none; }
+.slots { margin: 4px 0 18px; }
+.slot-tabs { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); border-left: 1px solid var(--line); margin-bottom: 14px; }
+.slot-tabs button {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; border: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  background: var(--paper); border-radius: 0; padding: 8px; text-align: left; font-size: 12px; cursor: pointer; line-height: 1.2; color: var(--ink);
+}
+.slot-tabs button b { font-size: 13px; }
+.slot-tabs .slot-time { font-variant-numeric: tabular-nums; }
+.slot-tabs .slot-type { color: var(--muted); }
+.slot-tabs button:hover { background: var(--paper-2); }
+.slot-tabs button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.slot-tabs button[aria-pressed="true"] .slot-type { color: inherit; opacity: 0.75; }
+.slot-tabs button:focus-visible { outline: 2px solid var(--c-coral); outline-offset: -2px; }
+.slot-editing { font-size: 13px; font-weight: 700; margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--rule); }
+.slot-marks { position: relative; height: 16px; font-size: 11px; color: var(--muted); }
+.slot-marks i { position: absolute; top: -12px; width: 1px; height: 14px; background: var(--ink); }
+.slot-marks span { position: absolute; top: 2px; transform: translateX(-50%); white-space: nowrap; }
+.slot-marks span.on { color: var(--ink); font-weight: 700; }
+
 /* Vue 3D */
 .viewer {
   position: relative; height: min(60vh, 600px); min-height: 320px; overflow: hidden;

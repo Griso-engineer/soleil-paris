@@ -25,6 +25,10 @@ const state = {
   doy: 202,
   hour: 14,
   view: 'ext',
+  sched: false, // réglage différent le matin, le midi et l'après-midi
+  b1: 12, // fin du matin (heure légale)
+  b2: 16, // début de l'après-midi
+  slots: null, // réglages de protection [matin, midi, après-midi]
 };
 readURL();
 
@@ -114,6 +118,8 @@ const sliders = {
   ohSide: (v) => `${Math.round(v * 100)} cm`,
   finDepth: (v) => `${fmt(v, 2)} m`,
   finGap: (v) => `${Math.round(v * 100)} cm`,
+  b1: (v) => fmtHour(v),
+  b2: (v) => fmtHour(v),
 };
 for (const id of Object.keys(sliders)) {
   $(id).addEventListener('input', (e) => set({ [id]: parseFloat(e.target.value) }));
@@ -127,6 +133,7 @@ const segs = {
   openness: (v) => parseFloat(v),
   color: (v) => v,
   finSide: (v) => v,
+  sched: (v) => v === 'true',
   view: (v) => v,
 };
 for (const [id, parse] of Object.entries(segs)) {
@@ -135,6 +142,15 @@ for (const [id, parse] of Object.entries(segs)) {
     if (b) set({ [id]: parse(b.dataset.v) });
   });
 }
+// Onglets matin, midi, après-midi : on règle le moment en se plaçant à une heure de ce moment
+$('slotTabs').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  const i = +b.dataset.slot;
+  if (slotOf(state.hour) === i) return;
+  const h = i === 0 ? Math.max(6, state.b1 - 2) : i === 1 ? (state.b1 + state.b2) / 2 : Math.min(21, state.b2 + 2);
+  set({ hour: Math.round(h * 4) / 4 });
+});
 $('presets').addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (b) set({ doy: parseInt(b.dataset.doy, 10) });
@@ -161,15 +177,31 @@ const GEOMETRY_KEYS = ['facadeAz', 'W', 'H', 'e', 'glazing', 'type', 'deploy', '
 
 function set(patch) {
   const prev = { ...state };
+  const sig0 = scheduleSig();
+  const editSlot = curSlot;
   Object.assign(state, patch);
+  state.b1 = Math.min(state.b1, state.b2 - 0.5);
+  if (state.sched) {
+    if (!prev.sched) {
+      // Passage à un réglage selon l'heure : les trois moments partent du réglage en cours
+      if (!state.slots) state.slots = [0, 1, 2].map(() => pickProtection(state));
+      curSlot = slotOf(state.hour);
+      Object.assign(state, state.slots[curSlot]);
+    } else if (PKEYS.some((k) => k in patch)) {
+      // Les réglages de protection modifient le moment affiché
+      state.slots[editSlot] = pickProtection(state);
+    }
+    followSlot();
+  }
   const changed = (keys) => keys.some((k) => prev[k] !== state[k]);
   const geom = changed(GEOMETRY_KEYS);
+  const plan = scheduleSig() !== sig0; // ce qui change le bilan de la journée
   const day = changed(['doy']);
 
   syncControls();
   if (geom) recomputeModels();
-  if (geom || day) recomputeDay();
-  if (geom || changed(['doy', 'roomArea'])) scheduleSlow();
+  if (plan || day) recomputeDay();
+  if (plan || changed(['doy', 'roomArea'])) scheduleSlow();
   if (changed(['view']) && scene) scene.setView(state.view);
   updateInstant();
   writeURL();
@@ -181,10 +213,82 @@ function configOf(s) {
   return c;
 }
 
+// ---------------------------------------------------------------------------
+// Réglage selon le moment de la journée : matin, midi, après-midi
+// ---------------------------------------------------------------------------
+
+// Réglages propres à la protection (le reste : façade, fenêtre, vitrage, est commun)
+const PKEYS = ['type', 'deploy', 'slatAngle', 'openAngle', 'louvered', 'color', 'openness', 'ajoure', 'bannePro', 'banneAngle',
+  'ohDepth', 'ohGap', 'ohSide', 'finDepth', 'finGap', 'finSide'];
+const SLOT_NAMES = [L('Matin', 'Morning'), L('Midi', 'Midday'), L('Après-midi', 'Afternoon')];
+// « réglage du matin », « réglage de l'après-midi »
+const SLOT_OF = [L('du matin', 'morning'), L('du midi', 'midday'), L("de l'après-midi", 'afternoon')];
+let curSlot = 0; // moment affiché quand le réglage suit l'heure
+
+function pickProtection(s) {
+  return Object.fromEntries(PKEYS.map((k) => [k, s[k]]));
+}
+function slotOf(h) {
+  return h < state.b1 ? 0 : h < state.b2 ? 1 : 2;
+}
+// Les réglages de protection affichés sont ceux du moment de l'heure choisie
+function followSlot() {
+  const s = slotOf(state.hour);
+  if (s === curSlot) return false;
+  curSlot = s;
+  Object.assign(state, state.slots[s]);
+  return true;
+}
+// Configuration de calcul de chaque moment (ou de la journée entière)
+function slotConfigs() {
+  const base = configOf(state);
+  return state.sched ? state.slots.map((p) => ({ ...base, ...p })) : [base, base, base];
+}
+// Pendant l'animation, la protection change de réglage en passant d'un moment à l'autre
+function switchSlotIfNeeded() {
+  if (!state.sched || !followSlot()) return;
+  syncControls();
+  recomputeModels();
+}
+function scheduleSig() {
+  const g = {};
+  for (const k of GEOMETRY_KEYS) if (!PKEYS.includes(k)) g[k] = state[k];
+  return JSON.stringify([g, state.sched, state.sched ? [state.b1, state.b2, state.slots] : pickProtection(state)]);
+}
+// Modèles en cache : passer d'un moment à l'autre ne recalcule rien
+const modelCache = new Map();
+function modelFor(cfg, gridN = 12) {
+  const key = `${gridN}|${JSON.stringify(cfg)}`;
+  let m = modelCache.get(key);
+  if (!m) {
+    if (modelCache.size > 40) modelCache.clear();
+    m = makeModel(cfg, gridN);
+    modelCache.set(key, m);
+  }
+  return m;
+}
+/** Modèle de calcul à l'heure h, ou fonction h → modèle pour la journée. */
+function scheduleModel(gridN = 12) {
+  const ms = slotConfigs().map((c) => modelFor(c, gridN));
+  return (h) => ms[slotOf(h)];
+}
+function slotSummary(s) {
+  const t = PROTECTIONS[s.type].label.toLowerCase();
+  return s.type === 'none' ? t : `${t}, ${settingLabel(s)}`;
+}
+function slotRange(i) {
+  if (i === 0) return L(`avant ${fmtHour(state.b1)}`, `before ${fmtHour(state.b1)}`);
+  if (i === 1) return `${fmtHour(state.b1)} – ${fmtHour(state.b2)}`;
+  return L(`après ${fmtHour(state.b2)}`, `after ${fmtHour(state.b2)}`);
+}
+function scheduleLabel(sep = ' ; ') {
+  return state.slots.map((s, i) => `${SLOT_NAMES[i].toLowerCase()} (${slotRange(i)}) : ${slotSummary(s)}`).join(sep);
+}
+
 function recomputeModels() {
   const cfg = configOf(state);
-  model = makeModel(cfg);
-  ref = makeModel({ ...cfg, type: 'none' });
+  model = modelFor(cfg);
+  ref = modelFor({ ...cfg, type: 'none' });
   if (scene) {
     scene.setBuilding(cfg);
     scene.setProtection(cfg);
@@ -193,7 +297,7 @@ function recomputeModels() {
 
 function recomputeDay() {
   const area = state.W * state.H;
-  const withP = dailyProfile(model, YEAR, state.doy, 10);
+  const withP = dailyProfile(scheduleModel(), YEAR, state.doy, 10);
   const without = dailyProfile(ref, YEAR, state.doy, 10);
   const times = sunTimes(YEAR, state.doy);
   dayData = { withP, without, area, times };
@@ -229,6 +333,7 @@ function recomputeDay() {
     reduction: kWithout > 0.01 ? 1 - kWith / kWithout : null,
     gtot: incDay > 0.01 ? kWith / incDay : null,
     light: light0 > 0.001 ? integrate(withP, 'light') / light0 : null,
+    ...(state.sched ? daySchedule(times) : {}),
   });
   $('kpiDayLabel').textContent = `${dateLabel(state.doy)}, ${L('ciel clair', 'clear sky')}`;
   const lit = sunlitHours(without);
@@ -240,6 +345,26 @@ function recomputeDay() {
     `${dateLabel(state.doy)}, ciel clair. Fenêtre de ${fmt(area, 2)} m². Sans protection, c'est l'équivalent d'un radiateur de 1 000 W allumé ${durationLabel(kWithout)}.`,
     `${dateLabel(state.doy)}, clear sky. ${fmt(area, 2)} m² window. Without shading, this equals a 1,000 W heater running for ${durationLabel(kWithout)}.`
   );
+}
+
+// Avec un réglage selon le moment : porosité moyenne du lever au coucher du soleil,
+// chaque réglage comptant pour la durée de son moment.
+function daySchedule(times) {
+  const a = times.rise ?? 0;
+  const b = times.set ?? 24;
+  const bounds = [0, state.b1, state.b2, 24];
+  let sum = 0;
+  let tot = 0;
+  slotConfigs().forEach((c, i) => {
+    const dur = Math.max(0, Math.min(b, bounds[i + 1]) - Math.max(a, bounds[i]));
+    sum += porosity(c) * dur;
+    tot += dur;
+  });
+  return {
+    poro: tot > 0 ? sum / tot : porosity(configOf(state)),
+    poroNote: L('en moyenne du lever au coucher, selon le moment', 'on average from sunrise to sunset, by time of day'),
+    view: L('selon le moment', 'depends on the time of day'),
+  };
 }
 
 function sunlitHours(profile) {
@@ -289,7 +414,7 @@ function recomputeSlow() {
   const cfg = configOf(state);
   const area = state.W * state.H;
   const refLow = makeModel({ ...cfg, type: 'none' }, 8);
-  const curLow = makeModel(cfg, 8);
+  const curLow = scheduleModel(8); // fonction h → modèle (réglage du moment)
 
   // Masque solaire de la protection choisie (grille de 10 × 10 points sur le vitrage)
   {
@@ -359,12 +484,12 @@ function recomputeSlow() {
       kwh: e * area,
     };
   });
-  if (state.type !== 'none') {
+  if (slotConfigs().some((c) => c.type !== 'none')) {
     const p = dailyProfile(curLow, YEAR, state.doy, 15);
     const e = integrate(p, 'gain');
     rows.push({
-      label: L('Votre réglage', 'Your setting'),
-      setting: `${PROTECTIONS[state.type].label.toLowerCase()}, ${settingLabel()}`,
+      label: state.sched ? L('Votre programme', 'Your schedule') : L('Votre réglage', 'Your setting'),
+      setting: state.sched ? scheduleLabel() : slotSummary(state),
       reduction: eBase > 0 ? 1 - e / eBase : 0,
       light: lBase > 0 ? integrate(p, 'light') / lBase : 1,
       kwh: e * area,
@@ -381,30 +506,30 @@ function recomputeSlow() {
   renderInsights();
 }
 
-function settingLabel() {
-  switch (state.type) {
-    case 'battants': return `${state.openAngle}°, ${state.louvered ? L('persiennés', 'louvred') : L('pleins', 'solid')}`;
-    case 'accordeon': return L(`fermés à ${Math.round(state.deploy * 100)} %`, `${Math.round(state.deploy * 100)} % closed`);
-    case 'roulant': return L(`baissé à ${Math.round(state.deploy * 100)} %`, `${Math.round(state.deploy * 100)} % lowered`);
-    case 'bso': return L(`${Math.round(state.deploy * 100)} %, lames à ${state.slatAngle}°`, `${Math.round(state.deploy * 100)} %, slats at ${state.slatAngle}°`);
-    case 'screen': return L(`${Math.round(state.deploy * 100)} %, toile ${state.openness} %`, `${Math.round(state.deploy * 100)} %, ${state.openness} % fabric`);
-    case 'banne': return L(`avancée ${fmt(state.bannePro * state.deploy, 1)} m, ${state.banneAngle}°`, `${fmt(state.bannePro * state.deploy, 1)} m projection, ${state.banneAngle}°`);
-    case 'casquette': return ohLabel();
-    case 'ailettes': return finLabel();
-    case 'combine': return `${ohLabel()} ; ${finLabel()}`;
+function settingLabel(s = state) {
+  switch (s.type) {
+    case 'battants': return `${s.openAngle}°, ${s.louvered ? L('persiennés', 'louvred') : L('pleins', 'solid')}`;
+    case 'accordeon': return L(`fermés à ${Math.round(s.deploy * 100)} %`, `${Math.round(s.deploy * 100)} % closed`);
+    case 'roulant': return L(`baissé à ${Math.round(s.deploy * 100)} %`, `${Math.round(s.deploy * 100)} % lowered`);
+    case 'bso': return L(`${Math.round(s.deploy * 100)} %, lames à ${s.slatAngle}°`, `${Math.round(s.deploy * 100)} %, slats at ${s.slatAngle}°`);
+    case 'screen': return L(`${Math.round(s.deploy * 100)} %, toile ${s.openness} %`, `${Math.round(s.deploy * 100)} %, ${s.openness} % fabric`);
+    case 'banne': return L(`avancée ${fmt(s.bannePro * s.deploy, 1)} m, ${s.banneAngle}°`, `${fmt(s.bannePro * s.deploy, 1)} m projection, ${s.banneAngle}°`);
+    case 'casquette': return ohLabel(s);
+    case 'ailettes': return finLabel(s);
+    case 'combine': return `${ohLabel(s)} ; ${finLabel(s)}`;
     default: return '';
   }
 }
 
-function ohLabel() {
-  return L(`casquette de ${fmt(state.ohDepth, 2)} m, ${Math.round(state.ohGap * 100)} cm au-dessus de la baie`,
-    `${fmt(state.ohDepth, 2)} m overhang, ${Math.round(state.ohGap * 100)} cm above the opening`);
+function ohLabel(s = state) {
+  return L(`casquette de ${fmt(s.ohDepth, 2)} m, ${Math.round(s.ohGap * 100)} cm au-dessus de la baie`,
+    `${fmt(s.ohDepth, 2)} m overhang, ${Math.round(s.ohGap * 100)} cm above the opening`);
 }
-function finLabel() {
-  const where = state.finSide === 'deux'
+function finLabel(s = state) {
+  const where = s.finSide === 'deux'
     ? L('deux côtés', 'both sides')
-    : L(`côté ${sideName(state.finSide)}`, `${sideName(state.finSide)} side`);
-  return L(`ailettes de ${fmt(state.finDepth, 2)} m, ${where}`, `${fmt(state.finDepth, 2)} m fins, ${where}`);
+    : L(`côté ${sideName(s.finSide)}`, `${sideName(s.finSide)} side`);
+  return L(`ailettes de ${fmt(s.finDepth, 2)} m, ${where}`, `${fmt(s.finDepth, 2)} m fins, ${where}`);
 }
 
 // Côtés de la baie vus depuis la rue : la droite regarde l'azimut de la façade − 90°.
@@ -425,7 +550,7 @@ function sideName(side) {
 function renderKpis(el, d) {
   const gl = GLAZINGS[state.glazing];
   const pct = (v) => (v === null ? '—' : `${fmt(v * 100)}<small>%</small>`);
-  const poro = porosity(configOf(state));
+  const poro = d.poro ?? porosity(configOf(state));
   el.innerHTML = `
     <div class="kpi hero">
       <div class="k-label">${d.heatLabel}</div>
@@ -450,12 +575,12 @@ function renderKpis(el, d) {
     <div class="kpi">
       <div class="k-label">${L('Lumière naturelle conservée', 'Daylight kept')}</div>
       <div class="k-value">${pct(d.light)}</div>
-      <div class="k-note">${L('vue :', 'view:')} <b>${PROTECTIONS[state.type].view.toLowerCase()}</b></div>
+      <div class="k-note">${L('vue :', 'view:')} <b>${d.view ?? PROTECTIONS[state.type].view.toLowerCase()}</b></div>
     </div>
     <div class="kpi">
       <div class="k-label">${L('Porosité, vue de face', 'Porosity (in elevation)')}</div>
       <div class="k-value">${pct(poro)}</div>
-      <div class="k-note">${L('de la baie laissée libre pour la ventilation', 'of the opening left free for ventilation')}</div>
+      <div class="k-note">${d.poroNote ?? L('de la baie laissée libre pour la ventilation', 'of the opening left free for ventilation')}</div>
     </div>`;
 }
 
@@ -518,7 +643,7 @@ function updateInstant(force = false) {
     gtot: r.incident > 5 ? r.gain / r.incident : null,
     light: r0.light > 0.5 ? r.light / r0.light : null,
   });
-  $('kpiNowLabel').textContent = `${dateLabel(state.doy)}, ${fmtHour(state.hour)}`;
+  $('kpiNowLabel').textContent = `${dateLabel(state.doy)}, ${fmtHour(state.hour)}${state.sched ? L(` · réglage ${SLOT_OF[curSlot]}`, ` · ${SLOT_OF[curSlot]} setting`) : ''}`;
 
   // Badge soleil
   const incidence = Math.acos(Math.min(1, r.cosT)) * 180 / Math.PI;
@@ -536,9 +661,10 @@ function updateInstant(force = false) {
   if (dayData) {
     renderDayChart($('dayChart'), {
       without: dayData.without, withP: dayData.withP, hour: state.hour, area,
+      breaks: state.sched ? [state.b1, state.b2] : [], slotNames: SLOT_NAMES,
       onPick: (h) => set({ hour: Math.round(h * 12) / 12 }),
     });
-    if (liveOn) renderLiveDay($('liveDay'), { without: dayData.without, withP: dayData.withP, hour: state.hour, area });
+    if (liveOn) renderLiveDay($('liveDay'), { without: dayData.without, withP: dayData.withP, hour: state.hour, area, breaks: state.sched ? [state.b1, state.b2] : [] });
   }
 
   const now = performance.now();
@@ -744,6 +870,22 @@ function syncControls() {
     `Vu depuis la rue : à gauche le côté ${sideName('gauche')}, à droite le côté ${sideName('droite')}.`,
     `Seen from the street: on the left the ${sideName('gauche')} side, on the right the ${sideName('droite')} side.`
   );
+
+  // Réglage selon le moment de la journée
+  $('slotsBox').hidden = !state.sched;
+  $('slotMarks').hidden = !state.sched;
+  if (state.sched) {
+    for (const b of $('slotTabs').querySelectorAll('button')) {
+      const i = +b.dataset.slot;
+      b.setAttribute('aria-pressed', String(i === curSlot));
+      b.querySelector('.slot-time').textContent = slotRange(i);
+      b.querySelector('.slot-type').textContent = PROTECTIONS[state.slots[i].type].label;
+    }
+    $('slotEditing').textContent = L(`Réglages ${SLOT_OF[curSlot]}`, `${SLOT_NAMES[curSlot]} settings`);
+    const bounds = [0, state.b1, state.b2, 24];
+    $('slotMarks').innerHTML = [state.b1, state.b2].map((h) => `<i style="left:${(h / 24) * 100}%"></i>`).join('')
+      + SLOT_NAMES.map((n, i) => `<span class="${i === curSlot ? 'on' : ''}" style="left:${((bounds[i] + bounds[i + 1]) / 48) * 100}%">${n}</span>`).join('');
+  }
 }
 
 function dateLabel(doy) {
@@ -774,6 +916,7 @@ $('play').addEventListener('click', () => {
       state.hour = h;
       $('hour').value = h;
       $('hourOut').textContent = `${fmtHour(h)} (${isSummerTime(YEAR, state.doy) ? 'UTC+2' : 'UTC+1'})`;
+      switchSlotIfNeeded();
       updateInstant();
       raf = requestAnimationFrame(step);
     };
@@ -781,6 +924,7 @@ $('play').addEventListener('click', () => {
   } else {
     cancelAnimationFrame(raf);
     state.hour = Math.round(state.hour * 12) / 12;
+    switchSlotIfNeeded();
     updateInstant(true);
     writeURL();
   }
@@ -795,6 +939,12 @@ const URL_KEYS = { ...Object.fromEntries(GEOMETRY_KEYS.map((k) => [k, k])), room
 function writeURL() {
   const p = new URLSearchParams();
   for (const k of Object.keys(URL_KEYS)) p.set(k, String(state[k]));
+  if (state.sched) {
+    p.set('sched', 'true');
+    p.set('b1', String(state.b1));
+    p.set('b2', String(state.b2));
+    state.slots.forEach((s, i) => p.set(`s${i}`, PKEYS.map((k) => String(s[k])).join('_')));
+  }
   withLang(p);
   history.replaceState(null, '', `?${p.toString()}${location.hash}`);
 }
@@ -820,6 +970,35 @@ function readURL() {
   state.doy = Math.max(1, Math.min(365, Math.round(state.doy)));
   state.hour = Math.max(0, Math.min(24, state.hour));
 }
+// Réglage selon le moment de la journée : sched, b1, b2, et un paramètre par moment
+// (s0, s1, s2) qui liste les réglages de protection dans l'ordre de PKEYS.
+function readScheduleURL() {
+  const p = new URLSearchParams(location.search);
+  if (p.get('sched') !== 'true') return;
+  const d = defaultConfig();
+  const slots = [0, 1, 2].map((i) => {
+    const s = pickProtection(state);
+    const vals = (p.get(`s${i}`) || '').split('_');
+    if (vals.length !== PKEYS.length) return s;
+    PKEYS.forEach((k, j) => {
+      const v = vals[j];
+      if (typeof d[k] === 'number') { const n = parseFloat(v); if (Number.isFinite(n)) s[k] = n; }
+      else if (typeof d[k] === 'boolean') s[k] = v === 'true';
+      else s[k] = v;
+    });
+    if (!PROTECTIONS[s.type]) s.type = d.type;
+    if (!['clair', 'moyen', 'fonce'].includes(s.color)) s.color = d.color;
+    if (!['gauche', 'droite', 'deux'].includes(s.finSide)) s.finSide = d.finSide;
+    return s;
+  });
+  const h = (k, def) => { const n = parseFloat(p.get(k)); return Number.isFinite(n) ? Math.max(6, Math.min(21, n)) : def; };
+  state.b2 = h('b2', 16);
+  state.b1 = Math.min(h('b1', 12), state.b2 - 0.5);
+  state.sched = true;
+  state.slots = slots;
+  curSlot = slotOf(state.hour);
+  Object.assign(state, slots[curSlot]);
+}
 function GEOMETRY_KEYS_INIT() {
   return Object.keys(defaultConfig());
 }
@@ -841,14 +1020,17 @@ function exportSheet(preview = false) {
   exportReport({
     scene,
     preview,
-    title: p.label,
-    setting: state.type === 'none' ? L('fenêtre sans protection', 'window without shading') : settingLabel(),
-    summary: p.text,
+    title: state.sched ? L('Protection selon le moment de la journée', 'Shading by time of day') : p.label,
+    setting: state.sched ? scheduleLabel() : state.type === 'none' ? L('fenêtre sans protection', 'window without shading') : settingLabel(),
+    summary: state.sched
+      ? L("Le réglage de la protection change au cours de la journée : un pour le matin, un pour le midi, un pour l'après-midi. Les bilans de la journée, du mois et de la canicule en tiennent compte ; les valeurs à l'instant simulé sont celles du réglage de ce moment.",
+        'The shading setting changes during the day: one for the morning, one for midday, one for the afternoon. The daily, monthly and heatwave results account for it; the values at the simulated time are those of the setting for that moment.')
+      : p.text,
     rows: [
       [L('Façade', 'Façade'), L(`${cap(on)} (azimut ${state.facadeAz}°), Paris`, `${cap(on)} (azimuth ${state.facadeAz}°), Paris`)],
       [L('Fenêtre', 'Window'), L(`${fmt(state.W, 2)} × ${fmt(state.H, 2)} m, tableau de ${Math.round(state.e * 100)} cm`, `${fmt(state.W, 2)} × ${fmt(state.H, 2)} m, ${Math.round(state.e * 100)} cm reveal`)],
       [L('Vitrage', 'Glazing'), `${gl.label}, g = ${fmt(gl.g, 2)}`],
-      [L('Protection', 'Shading'), state.type === 'none' ? L('aucune', 'none') : `${p.label.toLowerCase()}, ${settingLabel()}, ${L('teinte', 'colour')} ${COLORS[state.color].label.toLowerCase()}`],
+      [L('Protection', 'Shading'), state.sched ? scheduleLabel() : state.type === 'none' ? L('aucune', 'none') : `${p.label.toLowerCase()}, ${settingLabel()}, ${L('teinte', 'colour')} ${COLORS[state.color].label.toLowerCase()}`],
       [L('Simulation', 'Simulation'), L(`${dateLabel(state.doy)} à ${fmtHour(state.hour)}, ciel clair`, `${dateLabel(state.doy)} at ${fmtHour(state.hour)}, clear sky`)],
       [L('Pièce', 'Room'), L(`${fmt(state.roomArea)} m² (estimation de surchauffe)`, `${fmt(state.roomArea)} m² (overheating estimate)`)],
     ],
@@ -859,6 +1041,7 @@ function exportSheet(preview = false) {
 // Démarrage
 // ---------------------------------------------------------------------------
 
+readScheduleURL();
 syncControls();
 recomputeModels();
 recomputeDay();

@@ -122,6 +122,32 @@
 
         <section class="group">
           <h3><span class="step">C</span> <span data-en="Solar shading">Protection solaire</span></h3>
+          <div class="field">
+            <span class="label" data-en="Setting">Réglage</span>
+            <div class="seg" id="sched">
+              <button type="button" data-v="false" data-en="All day">Toute la journée</button>
+              <button type="button" data-v="true" data-en="By time of day">Selon le moment</button>
+            </div>
+          </div>
+          <div class="slots" id="slotsBox" hidden>
+            <div class="slot-tabs" id="slotTabs" role="group" aria-label="Moment de la journée" data-en-aria="Time of day">
+              <button type="button" data-slot="0"><b data-en="Morning">Matin</b><span class="slot-time"></span><span class="slot-type"></span></button>
+              <button type="button" data-slot="1"><b data-en="Midday">Midi</b><span class="slot-time"></span><span class="slot-type"></span></button>
+              <button type="button" data-slot="2"><b data-en="Afternoon">Après-midi</b><span class="slot-time"></span><span class="slot-type"></span></button>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="b1"><span data-en="Midday from">Midi à partir de</span> <output id="b1Out"></output></label>
+                <input type="range" id="b1" min="8" max="15" step="0.5">
+              </div>
+              <div class="field">
+                <label for="b2"><span data-en="Afternoon from">Après-midi à partir de</span> <output id="b2Out"></output></label>
+                <input type="range" id="b2" min="12" max="20" step="0.5">
+              </div>
+            </div>
+            <p class="hint" data-en="Choose a moment: the time of the 3D view moves into it, and the settings below apply to it. Each moment can have its own device.">Choisissez un moment : l'heure de la vue 3D s'y place, et les réglages ci-dessous s'y appliquent. Chaque moment peut avoir sa propre protection.</p>
+            <p class="slot-editing" id="slotEditing"></p>
+          </div>
           <div class="types" id="types" role="radiogroup" aria-label="Type de protection" data-en-aria="Shading type"></div>
           <p class="type-desc" id="typeDesc"></p>
 
@@ -253,6 +279,7 @@
             <div class="field grow">
               <label for="hour"><span data-en="Local time">Heure légale</span> <output id="hourOut" class="big"></output></label>
               <input type="range" id="hour" min="0" max="24" step="0.0833333">
+              <div class="slot-marks" id="slotMarks" hidden></div>
             </div>
           </div>
           <div class="time-row">
@@ -273,12 +300,12 @@
       <!-- Résultats -->
       <section class="results" aria-label="Résultats" data-en-aria="Results">
         <section class="kpi-block">
-          <h3><span data-en="Performance at the selected time">Performance à l'instant sélectionné</span> <span id="kpiNowLabel"></span></h3>
-          <div class="kpis" id="kpis"></div>
-        </section>
-        <section class="kpi-block">
           <h3><span data-en="Performance over the day">Performance sur la journée entière</span> <span id="kpiDayLabel"></span></h3>
           <div class="kpis" id="kpisDay"></div>
+        </section>
+        <section class="kpi-block">
+          <h3><span data-en="Performance at the selected time">Performance à l'instant sélectionné</span> <span id="kpiNowLabel"></span></h3>
+          <div class="kpis" id="kpis"></div>
         </section>
         <section class="kpi-block">
           <h3><span data-en="During a heatwave">En période de canicule</span> <span data-en="25 July, clear sky">25 juillet, ciel clair</span></h3>

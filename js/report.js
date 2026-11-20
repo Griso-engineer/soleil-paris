@@ -46,10 +46,10 @@ export function exportReport(ctx) {
         <figure><img src="${shots.ext}" alt="${L('Axonométrie extérieure', 'Exterior axonometric view')}"><figcaption>${L("<b>Axonométrie</b> depuis la rue", '<b>Axonometric view</b> from the street')}</figcaption></figure>
         <figure><img src="${shots.coupe}" alt="${L('Coupe', 'Section')}"><figcaption>${L("<b>Coupe</b> par l'axe de la baie", '<b>Section</b> through the window axis')}</figcaption></figure>
       </div>` : ''}
-      <h2>${L("À l'instant simulé", 'At the simulated time')} <span>${$('kpiNowLabel')?.textContent ?? ''}</span></h2>
-      <div class="kpis rp-kpis">${html('kpis')}</div>
       <h2>${L('Sur la journée', 'Over the day')} <span>${$('kpiDayLabel')?.textContent ?? ''}</span></h2>
       <div class="kpis rp-kpis">${html('kpisDay')}</div>
+      <h2>${L("À l'instant simulé", 'At the simulated time')} <span>${$('kpiNowLabel')?.textContent ?? ''}</span></h2>
+      <div class="kpis rp-kpis">${html('kpis')}</div>
     </section>
 
     <section class="rp-page">

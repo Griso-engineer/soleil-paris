@@ -212,7 +212,9 @@ export function renderSunPath(container, { year, doy, hour, sun, facadeAz, mask 
 // Lissage d'affichage : le calcul échantillonne l'ombre sur une grille de points, ce qui
 // donne de petites marches d'un pas de temps à l'autre. On les gomme par une moyenne
 // gaussienne (pour l'affichage seulement : les totaux sont calculés sur les valeurs brutes).
-function smoothProfile(arr, radius = 3) {
+// breaks : heures où la protection change de réglage ; on ne lisse pas par-dessus.
+function smoothProfile(arr, radius = 3, breaks = []) {
+  const side = (h) => breaks.filter((b) => h >= b).length;
   const w = [];
   for (let k = -radius; k <= radius; k++) w.push(Math.exp(-(k * k) / (2 * (radius / 2) ** 2)));
   return arr.map((p, i) => {
@@ -221,6 +223,7 @@ function smoothProfile(arr, radius = 3) {
     for (let k = -radius; k <= radius; k++) {
       const q = arr[i + k];
       if (!q) continue;
+      if (breaks.length && side(q.h) !== side(p.h)) continue;
       s += q.gain * w[k + radius];
       n += w[k + radius];
     }
@@ -245,13 +248,13 @@ function curve(pts) {
 }
 
 /** Version compacte, posée sur la vue 3D : les deux courbes et l'heure courante. */
-export function renderLiveDay(container, { without, withP, hour, area }) {
+export function renderLiveDay(container, { without, withP, hour, area, breaks = [] }) {
   const W = 220;
   const H = 92;
   const m = { l: 6, r: 6, t: 14, b: 14 };
   const svg = svgRoot(container, W, H, L('Chaleur solaire entrant au fil de la journée', 'Solar heat entering over the day'));
   const a = smoothProfile(without);
-  const b = smoothProfile(withP);
+  const b = smoothProfile(withP, 3, breaks);
   const ymax = niceMax(Math.max(100, ...a.map((p) => p.gain * area)) * 1.05);
   const x = (h) => m.l + (h / 24) * (W - m.l - m.r);
   const y = (v) => m.t + (H - m.t - m.b) - (v / ymax) * (H - m.t - m.b);
@@ -272,12 +275,12 @@ export function renderLiveDay(container, { without, withP, hour, area }) {
     .textContent = `${fmt(b[i].gain * area)} W`;
 }
 
-export function renderDayChart(container, { without, withP, hour, area, onPick }) {
+export function renderDayChart(container, { without, withP, hour, area, onPick, breaks = [], slotNames = [] }) {
   without = smoothProfile(without);
-  withP = smoothProfile(withP);
+  withP = smoothProfile(withP, 3, breaks);
   const W = 640;
   const H = 260;
-  const m = { l: 48, r: 16, t: 16, b: 30 };
+  const m = { l: 48, r: 16, t: breaks.length ? 34 : 16, b: 30 }; // bandeau des moments au-dessus
   const iw = W - m.l - m.r;
   const ih = H - m.t - m.b;
   const svg = svgRoot(container, W, H, L('Puissance solaire entrant par la fenêtre au fil de la journée', 'Solar power entering through the window over the day'));
@@ -312,6 +315,15 @@ export function renderDayChart(container, { without, withP, hour, area, onPick }
   }
   if (pp.gain * area > ymax * 0.08 && Math.abs(y(pp.gain * area) - y(pw.gain * area)) > 18) {
     el('text', { x: x(pp.h), y: y(pp.gain * area) - 8, 'text-anchor': 'middle', class: 'direct-label' }, svg).textContent = L('avec protection', 'with shading');
+  }
+
+  // Changements de réglage de la protection (matin, midi, après-midi)
+  if (breaks.length) {
+    const b = [0, ...breaks, 24];
+    for (const h of breaks) el('line', { x1: x(h), x2: x(h), y1: 2, y2: m.t + ih, class: 'grid', 'stroke-dasharray': '3 3' }, svg);
+    slotNames.forEach((n, i) => {
+      el('text', { x: x((b[i] + b[i + 1]) / 2), y: 14, 'text-anchor': 'middle', class: 'tick' }, svg).textContent = n;
+    });
   }
 
   // Heure courante

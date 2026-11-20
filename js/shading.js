@@ -626,13 +626,18 @@ export function evaluate(model, sun, doy) {
   return { sky, s, cosT, dirInc, skyInc, gndInc, incident, gain, light, sunlit: dir.sunlit };
 }
 
-/** Courbe journalière (pas en minutes) : puissance transmise en W/m² de vitrage. */
+/**
+ * Courbe journalière (pas en minutes) : puissance transmise en W/m² de vitrage.
+ * `model` peut être une fonction h → modèle, pour une protection dont le réglage
+ * change au cours de la journée (matin, midi, après-midi).
+ */
 export function dailyProfile(model, year, doy, stepMin = 10) {
+  const at = typeof model === 'function' ? model : () => model;
   const out = [];
   for (let m = 0; m <= 24 * 60; m += stepMin) {
     const h = m / 60;
     const sun = sunPosition(parisLocalToUTC(year, doy, h));
-    const r = evaluate(model, sun, doy);
+    const r = evaluate(at(h), sun, doy);
     out.push({ h, gain: r.gain, light: r.light, incident: r.incident, alt: sun.altitude });
   }
   return out;
